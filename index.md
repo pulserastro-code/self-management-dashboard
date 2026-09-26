@@ -1,6 +1,3 @@
-[セルフマネジメント（Daily _ Monthly _ Annual goal）.html](https://github.com/user-attachments/files/32680152/Daily._.Monthly._.Annual.goal.html)
-<!DOCTYPE html>
-<html lang="ja">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
