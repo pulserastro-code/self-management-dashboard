@@ -1,4 +1,3 @@
-[セルフマネジメント（Daily _ Monthly _ Annual goal _ 価値観）.html](https://github.com/user-attachments/files/33004912/Daily._.Monthly._.Annual.goal._.html)
 <!DOCTYPE html>
 <html lang="ja">
 <head>
