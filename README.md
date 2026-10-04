@@ -1,0 +1,1849 @@
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>現在地トラッカー</title>
+<style>
+  :root{
+    --bg:#1c1c1c; --panel:#242424; --panel2:#2b2b2b; --text:#e4e4e2; --muted:#9a9a96;
+    --accent:#c98a5e; --accent2:#6f9e8c; --border:#3a3a37; --track:#3a3a37; --danger:#c96a5e;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#f6f4f0; --panel:#ffffff; --panel2:#fbf9f5; --text:#2a2925; --muted:#7a776f;
+      --border:#e4e0d8; --track:#e8e4dc;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#f6f4f0; --panel:#ffffff; --panel2:#fbf9f5; --text:#2a2925; --muted:#7a776f;
+    --border:#e4e0d8; --track:#e8e4dc;
+  }
+  html,body{height:100%;}
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:"Hiragino Sans","Segoe UI",system-ui,sans-serif;
+    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+    line-height:1.5;
+  }
+  .wrap{max-width:780px; margin:0 auto; padding:28px 18px 60px;}
+  .topbar{display:flex; justify-content:space-between; align-items:flex-start; gap:12px;}
+  h1{font-size:1.5rem; margin:0 0 4px;}
+  .sub{color:var(--muted); font-size:.85rem; margin-bottom:22px;}
+  .editToggle{flex-shrink:0; background:var(--panel); border:1px solid var(--border); color:var(--text); font-size:.78rem; padding:7px 12px; border-radius:7px; cursor:pointer;}
+  .editToggle.on{background:var(--accent); border-color:var(--accent); color:#fff;}
+
+  .overall{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:18px 20px; margin-bottom:26px;}
+  .overall-top{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;}
+  .overall-num{font-size:2rem; font-weight:700; color:var(--accent);}
+  .bigtrack{height:10px; background:var(--track); border-radius:5px; overflow:hidden;}
+  .bigfill{height:100%; background:var(--accent); transition:width .2s;}
+
+  .card{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px 18px; margin-bottom:14px;}
+  .card>.chead{display:flex; justify-content:space-between; align-items:baseline; gap:8px;}
+  .card>.chead h2{font-size:1.02rem; margin:0; flex:1;}
+  .card>.chead .pct{color:var(--muted); font-size:.85rem; font-weight:600; white-space:nowrap;}
+  .card>.track{height:6px; background:var(--track); border-radius:3px; overflow:hidden; margin:8px 0 14px;}
+  .card>.track>.fill{height:100%; background:var(--accent2);}
+
+  .group{margin:6px 0; padding-left:10px; border-left:2px solid var(--border);}
+  .ghead{display:flex; justify-content:space-between; align-items:baseline; font-size:.88rem; cursor:pointer; padding:4px 0; user-select:none; gap:8px;}
+  .ghead .gname{display:flex; align-items:baseline; gap:6px; flex:1; min-width:0;}
+  .ghead .arrow{color:var(--muted); font-size:.72rem; transition:transform .15s; display:inline-block; flex-shrink:0;}
+  .group.open>.ghead .arrow{transform:rotate(90deg);}
+  .ghead .gpct{color:var(--muted); font-size:.78rem; white-space:nowrap;}
+  .gtrack{height:4px; background:var(--track); border-radius:2px; overflow:hidden; margin:2px 0 4px;}
+  .gtrack>.gfill{height:100%; background:var(--accent2);}
+  .gchildren{display:none;}
+  .group.open>.gchildren{display:block;}
+  .depth1>.ghead{font-weight:600;}
+  .depth2>.ghead{font-weight:500; color:var(--text);}
+  .depth3>.ghead{font-weight:400; color:var(--muted);}
+
+  .item-row{padding:7px 0 7px 10px; display:flex; align-items:center; gap:8px;}
+  .item-body{flex:1; min-width:0;}
+  .item-top{display:flex; justify-content:space-between; align-items:baseline; font-size:.82rem; gap:8px;}
+  .item-pct{color:var(--muted); font-size:.78rem; min-width:34px; text-align:right;}
+  input[type=range]{
+    width:100%; margin-top:4px; -webkit-appearance:none; height:4px; border-radius:2px;
+    background:var(--track); accent-color:var(--accent2);
+  }
+
+  .ebtn{flex-shrink:0; border:none; background:none; color:var(--muted); font-size:.85rem; cursor:pointer; padding:2px 4px; border-radius:4px;}
+  .ebtn:hover{background:var(--panel2);}
+  .ebtn.del{color:var(--danger);}
+  .addrow{margin:6px 0 4px 10px;}
+  .addbtn{background:none; border:1px dashed var(--border); color:var(--muted); font-size:.76rem; padding:4px 10px; border-radius:6px; cursor:pointer; margin-right:6px; margin-bottom:4px;}
+  .addbtn:hover{color:var(--text); border-color:var(--accent2);}
+  .addCardBtn{display:block; width:100%; margin-top:4px; background:none; border:1px dashed var(--border); color:var(--muted); font-size:.85rem; padding:10px; border-radius:10px; cursor:pointer;}
+  .addCardBtn:hover{color:var(--text); border-color:var(--accent2);}
+
+  details.exp{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:14px 18px; margin-top:14px;}
+  details.exp summary{cursor:pointer; font-size:1.02rem; font-weight:600;}
+  .exp ul{margin:10px 0 0; padding-left:20px; font-size:.86rem; color:var(--muted);}
+  .exp ul li{margin-bottom:3px;}
+
+  .reset{display:block; margin:16px auto 0; background:none; border:1px solid var(--border); color:var(--muted); font-size:.78rem; padding:6px 14px; border-radius:6px; cursor:pointer;}
+
+  .tabs{display:flex; gap:6px; margin-bottom:20px; border-bottom:1px solid var(--border);}
+  .tabbtn{background:none; border:none; color:var(--muted); font-size:.86rem; padding:9px 4px; margin-right:14px; cursor:pointer; border-bottom:2px solid transparent;}
+  .tabbtn.active{color:var(--text); border-bottom-color:var(--accent); font-weight:600;}
+  .tabpanel{display:none;}
+  .tabpanel.active{display:block;}
+
+  .daynav{display:flex; align-items:center; gap:10px; margin-bottom:16px;}
+  .daylabel{flex:1; text-align:center; font-size:.98rem; font-weight:600;}
+  .navbtn{background:none; border:1px solid var(--border); color:var(--text); border-radius:6px; padding:5px 10px; cursor:pointer; font-size:.85rem;}
+  .todayBtn{background:none; border:1px solid var(--border); color:var(--muted); border-radius:6px; padding:5px 10px; cursor:pointer; font-size:.78rem;}
+  .ftime{color:var(--muted); font-size:.8rem; margin-top:8px;}
+
+  .addTaskRow{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;}
+  .addTaskRow input[type=text]{flex:2; min-width:140px;}
+  .addTaskRow select{flex:1; min-width:110px;}
+  .addTaskRow input[type=number]{width:90px;}
+  .addTaskRow input,.addTaskRow select{padding:7px 9px; border-radius:6px; border:1px solid var(--border); background:var(--panel2); color:var(--text); font-size:.85rem;}
+  .addTaskRow .addbtn{border-style:solid;}
+
+  .pgroup{margin-bottom:14px;}
+  .pgroup h3{font-size:.82rem; color:var(--muted); margin:0 0 6px; display:flex; align-items:center; gap:6px;}
+  .pbadge{display:inline-block; width:20px; height:20px; border-radius:5px; color:#fff; font-size:.72rem; font-weight:700; text-align:center; line-height:20px;}
+  .pbadge.A{background:#c9695e;} .pbadge.B{background:#c98a5e;} .pbadge.C{background:#6f9e8c;}
+
+  .task{background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:8px; display:flex; align-items:center; gap:10px;}
+  .task.done{opacity:.55;}
+  .task.done .ttext{text-decoration:line-through;}
+  .task input[type=checkbox]{width:18px; height:18px; accent-color:var(--accent2); flex-shrink:0;}
+  .task .tbody{flex:1; min-width:0;}
+  .task .ttext{font-size:.9rem; word-break:break-word;}
+  .task .tmeta{display:flex; gap:10px; align-items:center; margin-top:5px; font-size:.76rem; color:var(--muted);}
+  .task .tmeta input{width:60px; padding:3px 6px; border-radius:5px; border:1px solid var(--border); background:var(--panel2); color:var(--text); font-size:.76rem;}
+  .noTask{color:var(--muted); font-size:.85rem; padding:8px 0;}
+
+  .mrow{background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:9px 12px; margin-bottom:6px; display:flex; align-items:center; gap:10px; font-size:.85rem;}
+  .mrow .mdate{width:78px; flex-shrink:0; color:var(--muted);}
+  .mrow .mstat{flex:1;}
+  .mrow .mbar{height:4px; background:var(--track); border-radius:2px; overflow:hidden; margin-top:4px;}
+  .mrow .mbar>div{height:100%; background:var(--accent2);}
+  .mrow .mmin{width:64px; text-align:right; color:var(--muted); flex-shrink:0;}
+
+  .tlinktime{font-size:.72rem; color:var(--accent2); margin-top:2px;}
+
+  .chipRow{display:flex; flex-wrap:wrap; gap:7px; margin:10px 0 2px;}
+  .chip{background:var(--panel2); border:1px solid var(--border); border-radius:16px; padding:6px 12px; font-size:.8rem; cursor:pointer; display:flex; align-items:center; gap:6px;}
+  .chip:hover{border-color:var(--accent2);}
+  .chip .cx{color:var(--muted); font-size:.7rem;}
+  .chipLabel{color:var(--muted); font-size:.76rem; margin-top:12px; margin-bottom:2px;}
+  .tmpBtn{background:none; border:1px dashed var(--border); color:var(--muted); font-size:.8rem; padding:7px 12px; border-radius:6px; cursor:pointer;}
+  .gcalLink{text-decoration:none;}
+
+  .addTaskRow input,.addTaskRow select,.task .tmeta input{font-size:16px !important;}
+
+  .goalrow{background:var(--panel2); border:1px solid var(--border); border-radius:8px; padding:9px 12px; margin-bottom:6px; display:flex; align-items:center; gap:10px; font-size:.85rem;}
+  .goalrow .gtitle{flex:1; min-width:0;}
+  .goalrow .gdeadline{color:var(--muted); font-size:.76rem; white-space:nowrap;}
+  .catbadge{background:var(--track); color:var(--muted); font-size:.72rem; padding:2px 8px; border-radius:10px; white-space:nowrap;}
+  .mtarget{width:100%; padding:7px 9px; border-radius:6px; border:1px solid var(--border); background:var(--panel2); color:var(--text); font-size:16px; margin-top:4px;}
+  .mgoalrow{margin-bottom:12px;}
+  .mgoalrow .gname{font-size:.85rem; font-weight:600; margin-bottom:2px;}
+  textarea.mreflect{width:100%; min-height:90px; padding:9px; border-radius:6px; border:1px solid var(--border); background:var(--panel2); color:var(--text); font-size:16px; font-family:inherit; margin-top:6px; resize:vertical;}
+  .card>.chead{display:flex; justify-content:space-between; align-items:center;}
+  .slackBtn{font-size:.76rem; padding:5px 10px; white-space:nowrap;}
+
+  .timetable-wrap{overflow-x:auto;}
+  .timetable{position:relative; margin-top:8px; border-top:1px solid var(--border); min-width:260px;}
+  .thour{display:flex; height:36px; border-bottom:1px solid var(--border);}
+  .thour .hlabel{width:42px; flex-shrink:0; font-size:.68rem; color:var(--muted); padding-top:2px;}
+  .thour .hslot{flex:1;}
+  .tblocks{position:absolute; top:0; left:42px; right:0; bottom:0;}
+  .tblock{position:absolute; left:4px; right:4px; border-radius:6px; padding:2px 6px; font-size:.7rem; color:#fff; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; box-shadow:0 0 0 1px rgba(0,0,0,.15);}
+  .tblock.A{background:#c9695e;} .tblock.B{background:#c98a5e;} .tblock.C{background:#6f9e8c;}
+  .tblock{cursor:grab;}
+  .tblock.done{opacity:.5; text-decoration:line-through;}
+  .dragGhost{position:fixed; z-index:9999; padding:4px 10px; border-radius:6px; color:#fff; font-size:.75rem; pointer-events:none; box-shadow:0 4px 10px rgba(0,0,0,.3); max-width:140px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;}
+  .dragGhost.A{background:#c9695e;} .dragGhost.B{background:#c98a5e;} .dragGhost.C{background:#6f9e8c;}
+  .chip.A{border-color:#c9695e;} .chip.B{border-color:#c98a5e;} .chip.C{border-color:#6f9e8c;}
+  .chip{cursor:grab; touch-action:none;}
+
+  .streakRow{background:var(--panel2); border:1px solid var(--accent2); border-radius:8px; padding:8px 12px; margin-bottom:10px; font-size:.82rem; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+
+  .moneyRow{display:flex; align-items:center; gap:10px; padding:7px 0; border-top:1px solid var(--border); font-size:.86rem;}
+  .moneyRow:first-child{border-top:none;}
+  .moneyRow .mname{flex:1;}
+  .moneyRow .mamount{color:var(--muted); white-space:nowrap;}
+
+  .chartlegend{display:flex; gap:12px; flex-wrap:wrap; margin-top:8px; font-size:.74rem; color:var(--muted);}
+  .chartlegend .lg{display:flex; align-items:center; gap:4px;}
+  .chartlegend .sw{width:10px; height:10px; border-radius:2px; display:inline-block;}
+
+  .pbar{display:flex; height:10px; border-radius:5px; overflow:hidden; margin-top:10px; background:var(--track);}
+  .pbar>div{height:100%;}
+</style>
+</head>
+<body>
+<script type="application/json" id="bootstrapData">
+{"genzaichi_tracker_data_v1":"[{\"id\":\"it\",\"title\":\"IT資格取得\",\"items\":[{\"name\":\"基本情報技術者試験\",\"children\":[{\"name\":\"①テクノロジ系（コンピュータの技術・仕組み）\",\"children\":[{\"name\":\"基礎理論\",\"children\":[\"離散数学\",\"応用数学\",\"アルゴリズムとプログラミング\"]},{\"name\":\"コンピュータシステム\",\"children\":[\"プロセッサ、メモリ、バスなどのコンピュータ構成要素\",\"OSやミドルウェアなどのソフトウェア\",\"ハードウェア\"]},{\"name\":\"技術要素\",\"children\":[\"ヒューマンインタフェース\",\"マルチメディア\",\"データベース\",\"ネットワーク\",\"セキュリティ\"]},{\"name\":\"開発技術\",\"children\":[\"システム開発ライフサイクル\",\"要件定義\",\"設計\",\"プログラミング\",\"テスト\",\"ソフトウェア開発管理\"]}]},{\"name\":\"②マネジメント系（プロジェクトやサービスの管理）\",\"children\":[{\"name\":\"プロジェクトマネジメント\",\"children\":[\"プロジェクト計画\",\"工程管理\",\"コスト管理\",\"リスク管理\"]},{\"name\":\"サービスマネジメント\",\"children\":[\"サービスレベル管理\",\"可用性管理\",\"ITサービス運用\"]},{\"name\":\"システム監査\",\"children\":[\"システム監査の計画\",\"実施\",\"評価\"]}]},{\"name\":\"③ストラテジ系（経営・ビジネス・法務）\",\"children\":[{\"name\":\"システム戦略\",\"children\":[\"システム化計画\",\"要件定義\",\"調達計画\"]},{\"name\":\"経営戦略・マネジメント\",\"children\":[\"経営理念（MVV）\",\"SWOT分析\",\"マーケティング\",\"ERP\"]},{\"name\":\"企業と法務\",\"children\":[\"企業活動\",\"組織論\",\"会計\",\"財務\",\"知的財産権（著作権法・特許法など）\",\"労働法規\"]}]}]},{\"name\":\"G検定\",\"children\":[{\"name\":\"①人工知能（AI）とは\",\"children\":[\"人工知能の定義\",\"歴史\",\"主要なアプローチ\",\"人工知能分野で議論されている問題（シンギュラリティ、トレイ・テストなど）\"]},{\"name\":\"②人工知能をめぐる動向\",\"children\":[\"探索・推論\",\"知識表現\",\"第1次・第2次ブーム（エキスパートシステムなど）の背景と限界\",\"機械学習・ディープラーニングに至る流れ\"]},{\"name\":\"③機械学習の具体的手法\",\"children\":[\"教師あり学習（回帰、分類）\",\"教師なし学習（クラスタリング、次元削減）強化学習\",\"評価指標（混同行列、精度、適合率、再現率など）\"]},{\"name\":\"④ディープラーニングの概要\",\"children\":[\"ニューラルネットワークの仕組み（活性化関数、誤差逆伝播法、勾配消失問題）\",\"隠れ層の種類と発展（CNN、RNN、LSTM、Transformerなど）\"]},{\"name\":\"⑤ディープラーニングの手法・応用\",\"children\":[\"画像認識（物体検出、セマンティックセグメンテーション）\",\"自然言語処理（Word2Vec、大規模言語モデルなど）\",\"生成AI（GAN、拡散モデル）\",\"マルチモーダル\",\"転移学習\"]},{\"name\":\"⑥AIプロジェクトとデータ・数学基礎\",\"children\":[\"データの収集・前処理\",\"AIプロジェクトの進め方（PoC、アジャイル開発）\",\"数理・統計の基礎（確率・統計、線形代数、微分などの基本知識）\"]},{\"name\":\"⑦法律・倫理・社会問題\",\"children\":[\"AIに関する著作権\",\"契約\",\"プライバシー\",\"データ利活用に関する法規制\",\"AI倫理\",\"ガバナンス\",\"ガイドライン（国内外の動向\"]}]},{\"name\":\"SQL\",\"children\":[\"「データ操作」\",\"「データ定義」\",\"「データ制御」\"]},{\"name\":\"PM系資格\",\"children\":[{\"name\":\"プロジェクトマネジメント（最重要・レベル4）\",\"children\":[\"プロジェクト統合マネジメント（プロジェクト憲章、プロジェクト管理計画、変更管理、クローズアウト）\",\"プロジェクトスコープマネジメント（要件定義、スコープ定義、WBS作成、スコープ検証・コントロール）\",\"プロジェクトスケジュールマネジメント（アクティビティ定義、アローダイアグラム/PERT、クリティカルパス法、CCPM、進捗管理）\",\"プロジェクトコストマネジメント（コスト見積もり、類推見積、ボトムアップ見積、ファンクションポイント法、予算設定、EVM/アーンドバリューマネジメント）\",\"プロジェクト品質マネジメント（品質計画、品質保証、品質管理、QC七つ道具、レビュー、テスト管理）\",\"プロジェクト資源マネジメント（チーム編成、要員管理、役割・責任、チーム育成、コンフリクトマネジメント）\",\"プロジェクトコミュニケーションマネジメント（コミュニケーション計画、情報配布、ステークホルダー報告）\",\"プロジェクトリスクマネジメント（リスク特定、定性的リスク分析、定量リスク分析、リスク対応計画/回避・転嫁・軽減・受容、リスク監視）\",\"プロジェクト調達マネジメント（調達計画、RFP/提案依頼書、ベンダー選定基準、契約管理、SLA）\",\"プロジェクトステークホルダーマネジメント（ステークホルダー特定、エンゲージメント管理）\",\"アジャイルプロジェクトマネジメント（スクラム、アジャイルマニフェスト、ベロシティ、バーンダウンチャート）\"]},{\"name\":\"システム企画（レベル3）\",\"children\":[\"システム化計画（全体最適化、費用対効果分析/ROI、投資評価）\",\"要件定義プロセス（業務要件、機能要件、非機能要件の定義）\"]},{\"name\":\"システム開発技術（レベル3）\",\"children\":[\"開発プロセス（共通フレーム/SLCP、ウォーターフォールモデル、プロトタイピングモデル）\",\"設計・テスト（システム設計、単体テスト、結合テスト、システムテスト、運用テスト）\"]},{\"name\":\"ソフトウェア開発管理技術（レベル3）\",\"children\":[\"構成管理・変更管理（構成識別、バージョン管理、ベースライン、構成監査、リポジトリ）\"]},{\"name\":\"サービスマネジメント（レベル3）\",\"children\":[\"サービスマネジメント（ITIL、サービスデザイン、サービス移行、サービス運用、インシデント管理、問題管理、リリース管理）\"]},{\"name\":\"情報セキュリティ（レベル3）\",\"children\":[\"情報セキュリティ管理（ISMS、セキュリティポリシー、リスクアセスメント、組織的・人的セキュリティ対策）\",\"セキュリティ技術（暗号化技術、共通鍵・公開鍵暗号、デジタル署名、認証技術、マルウェア対策、サイバー攻撃手法と対策）\"]},{\"name\":\"法務（レベル3）\",\"children\":[\"知的財産権（著作権法、産業財産権、特許法、不正競争防止法）\",\"労働関連法・取引契約（労働者派遣法、民法/請負契約・準委任契約、下請法、機密保持契約/NDA）\"]},{\"name\":\"プロジェクトの立ち上げ・計画\",\"children\":[\"プロジェクト目標（スコープ・納期・コスト・品質）の明確化と制約条件の評価\",\"開発規模・工数の見積もり（ファンクションポイント法、類推法などの妥当性検証）\",\"要員計画・体制構築（スキルバランス、複数ベンダー混在環境の体制策定）\",\"スケジュール・WBSの策定（クリティカルパスの特定、先行・後行タスクの整合性）\"]},{\"name\":\"プロジェクトの実行・コントロール\",\"children\":[\"進捗・コストの予実管理（EVMを用いたトレンド分析、遅延回復策の策定）\",\"品質管理（バグ密度・テスト消化率の分析、品質目標未達への対策、レビューの形骸化防止）\",\"課題・リスク管理（予期せぬリスクの顕在化、課題の優先順位付けと解決策の実行）\",\"変更管理（顧客からの仕様変更、法改正に伴う追加要件の影響分析と承認プロセス）\",\"ステークホルダー・チームマネジメント（顧客との合意形成、要員のモチベーション維持、多国籍/リモート体制の管理）\"]},{\"name\":\"プロジェクトの終結\",\"children\":[\"成果物の納品と顧客による受け入れテストの支援\",\"プロジェクト全体の振り返りと評価（Lessons Learned/組織の資産化）\"]}]}]},{\"id\":\"note\",\"title\":\"note作成\",\"items\":[\"書籍確認\",\"タスク整理\"]},{\"id\":\"toeic700\",\"title\":\"TOEIC700点\",\"items\":[\"TOEIC700点\"]},{\"id\":\"diet\",\"title\":\"ダイエット\",\"items\":[{\"name\":\"理想の体脂肪率20%\",\"children\":[\"体脂肪率29%\"]},{\"name\":\"体重45kg\",\"children\":[]}]},{\"id\":\"fukugyo\",\"title\":\"複業案件\",\"items\":[\"複業クラウド案件調査\",\"案件調査確認スクリプト作成\",\"現在の資格や状況と照会\",\"いつまでに何を取得するのか決定\"]},{\"id\":\"marketing\",\"title\":\"マーケティング系資格\",\"items\":[\"マーケティング系資格\"]},{\"id\":\"ec\",\"title\":\"(ECサイト実証実験)\",\"items\":[\"(ECサイト実証実験)\"]}]","genzaichi_tracker_v5":"{\"it|基本情報技術者試験|③ストラテジ系（経営・ビジネス・法務）|企業と法務|企業活動\":50,\"diet|理想の体脂肪率20%|体脂肪率29%\":0}","annual_goals_v1":"[{\"id\":\"g1790448745632\",\"title\":\"基本情報技術者試験\",\"deadline\":\"2026-11-27\",\"linkedNodeKey\":\"it|基本情報技術者試験\"},{\"id\":\"g1790448773199\",\"title\":\"ダイエット\",\"deadline\":\"2026-12-25\",\"linkedNodeKey\":\"diet\"}]","monthly_goal_items_v1":"{\"2026-09\":[{\"id\":\"mg1790449722964\",\"title\":\"基本情報技術者試験\",\"linkedGoalId\":\"g1790448745632\",\"targetPct\":15,\"progressPct\":0},{\"id\":\"mg1790469859431\",\"title\":\"ダイエット\",\"linkedGoalId\":\"g1790448773199\",\"targetPct\":0,\"progressPct\":0}]}","monthly_notes_v1":"{\"2026-09\":{\"reflection\":\"9/26 基本技術者試験\\n問題点\\n①教科書がない：全体像を把握しにくい\\n②何故問題が簿記なのか\\n②全体の理解の比重が分かりにくい\\n\\n・企業法務：勉強していなくても基本、8割解ける\\n\\n私の傾向：楽しいから\\n〇〇がしたいから、win-winになるお願いする\\n\\n見せ方が上手い\\n大きい外資はゆったり系かも。小さい外資\\n\\n3年間、自分との約束を守り続ける\"}}","franklin_tasks_v1":"{\"2026-09-26\":[{\"text\":\"基本情報技術者試験\",\"priority\":\"B\",\"est\":30,\"actual\":0,\"done\":true,\"linkKey\":null},{\"text\":\"yの会\",\"priority\":\"B\",\"est\":180,\"actual\":0,\"done\":true,\"linkKey\":null},{\"text\":\"note作成\",\"priority\":\"B\",\"est\":30,\"actual\":0,\"done\":false,\"linkKey\":null},{\"text\":\"基本情報技術者試験\",\"priority\":\"B\",\"est\":30,\"actual\":0,\"done\":true,\"linkKey\":null},{\"text\":\"トイレ掃除\",\"priority\":\"C\",\"est\":0,\"actual\":0,\"done\":true,\"linkKey\":null},{\"text\":\"リビング・台所・各部屋掃除\",\"priority\":\"C\",\"est\":20,\"actual\":0,\"done\":true,\"linkKey\":null},{\"text\":\"部屋掃除\",\"priority\":\"C\",\"est\":15,\"actual\":0,\"done\":true,\"linkKey\":null},{\"text\":\"計画立案\",\"priority\":\"A\",\"est\":0,\"actual\":0,\"done\":true,\"linkKey\":null},{\"text\":\"振り返り\",\"priority\":\"A\",\"est\":15,\"actual\":0,\"done\":true,\"linkKey\":null}],\"2026-09-27\":[{\"text\":\"水回り掃除\",\"priority\":\"C\",\"est\":15,\"actual\":0,\"done\":false,\"linkKey\":null},{\"text\":\"計画立案\",\"priority\":\"A\",\"est\":0,\"actual\":0,\"done\":true,\"linkKey\":null},{\"text\":\"振り返り\",\"priority\":\"A\",\"est\":0,\"actual\":0,\"done\":true,\"linkKey\":null},{\"text\":\"note作成\",\"priority\":\"B\",\"est\":15,\"actual\":0,\"done\":true,\"linkKey\":null},{\"text\":\"基本情報技術者試験\",\"priority\":\"B\",\"est\":50,\"actual\":0,\"done\":true,\"linkKey\":\"mg1790449722964\"},{\"text\":\"管理人さんとhanamizuki\",\"priority\":\"C\",\"est\":0,\"actual\":0,\"done\":true,\"linkKey\":null},{\"text\":\"ジム\",\"priority\":\"B\",\"est\":20,\"actual\":0,\"done\":true,\"linkKey\":\"mg1790469859431\"},{\"text\":\"サッカー試合\",\"priority\":\"C\",\"est\":0,\"actual\":0,\"done\":true,\"linkKey\":null}],\"2026-09-28\":[{\"text\":\"計画立案\",\"priority\":\"A\",\"est\":0,\"actual\":0,\"done\":true,\"linkKey\":null},{\"text\":\"振り返り\",\"priority\":\"A\",\"est\":0,\"actual\":0,\"done\":true,\"linkKey\":null},{\"text\":\"基本情報技術者試験\",\"priority\":\"B\",\"est\":30,\"actual\":0,\"done\":true,\"linkKey\":\"mg1790449722964\"},{\"text\":\"トイレ掃除\",\"priority\":\"C\",\"est\":5,\"actual\":0,\"done\":false,\"linkKey\":null},{\"text\":\"部屋掃除\",\"priority\":\"C\",\"est\":15,\"actual\":0,\"done\":false,\"linkKey\":null},{\"text\":\"十文字さん、かなこちゃん\",\"priority\":\"B\",\"est\":60,\"actual\":0,\"done\":true,\"linkKey\":null},{\"text\":\"ゆいさんセラー選出\",\"priority\":\"B\",\"est\":90,\"actual\":0,\"done\":false,\"linkKey\":null}],\"2026-09-29\":[{\"text\":\"基本情報技術者試験\",\"priority\":\"B\",\"est\":30,\"actual\":0,\"done\":true,\"linkKey\":\"mg1790449722964\"},{\"text\":\"計画立案\",\"priority\":\"A\",\"est\":0,\"actual\":0,\"done\":true,\"linkKey\":null},{\"text\":\"振り返り\",\"priority\":\"A\",\"est\":0,\"actual\":0,\"done\":true,\"linkKey\":null}],\"2026-09-30\":[{\"text\":\"計画立案\",\"priority\":\"A\",\"est\":0,\"actual\":0,\"done\":true,\"linkKey\":null,\"startTime\":\"06:00\"},{\"text\":\"振り返り\",\"priority\":\"A\",\"est\":0,\"actual\":0,\"done\":true,\"linkKey\":null,\"startTime\":\"22:25\"},{\"text\":\"基本情報技術者試験\",\"priority\":\"B\",\"est\":30,\"actual\":0,\"done\":true,\"linkKey\":\"mg1790449722964\",\"startTime\":\"19:30\"},{\"text\":\"note作成\",\"priority\":\"B\",\"est\":30,\"actual\":0,\"done\":false,\"linkKey\":null},{\"text\":\"トイレ掃除\",\"priority\":\"C\",\"est\":5,\"actual\":0,\"done\":false,\"linkKey\":null},{\"text\":\"水回り掃除\",\"priority\":\"C\",\"est\":15,\"actual\":0,\"done\":false,\"linkKey\":null,\"startTime\":null},{\"text\":\"AIツール改良\",\"priority\":\"B\",\"est\":30,\"actual\":0,\"done\":true,\"linkKey\":null,\"startTime\":\"06:30\"},{\"text\":\"移動\",\"priority\":\"A\",\"est\":60,\"actual\":0,\"done\":true,\"linkKey\":null,\"startTime\":\"08:05\"},{\"text\":\"移動\",\"priority\":\"A\",\"est\":45,\"actual\":0,\"done\":true,\"linkKey\":null,\"startTime\":\"18:15\"},{\"text\":\"AM 通常業務\",\"priority\":\"A\",\"est\":180,\"actual\":0,\"done\":true,\"linkKey\":null,\"startTime\":\"09:10\"},{\"text\":\"宮本さん MTG\",\"priority\":\"B\",\"est\":60,\"actual\":0,\"done\":true,\"linkKey\":null,\"startTime\":\"13:30\"},{\"text\":\"片岡さんMTG\",\"priority\":\"B\",\"est\":60,\"actual\":0,\"done\":true,\"linkKey\":null,\"startTime\":\"15:30\"},{\"text\":\"DXの思考法\",\"priority\":\"B\",\"est\":15,\"actual\":0,\"done\":true,\"linkKey\":null,\"startTime\":\"07:10\"},{\"text\":\"臨時対応2件\",\"priority\":\"B\",\"est\":30,\"actual\":0,\"done\":true,\"linkKey\":null,\"startTime\":\"12:55\"}],\"2026-10-01\":[{\"text\":\"計画立案\",\"priority\":\"A\",\"est\":0,\"actual\":0,\"done\":true,\"linkKey\":null,\"startTime\":null},{\"text\":\"振り返り\",\"priority\":\"A\",\"est\":0,\"actual\":0,\"done\":false,\"linkKey\":null},{\"text\":\"基本情報技術者試験\",\"priority\":\"B\",\"est\":30,\"actual\":0,\"done\":false,\"linkKey\":\"mg1790449722964\"},{\"text\":\"移動\",\"priority\":\"A\",\"est\":45,\"actual\":0,\"done\":true,\"linkKey\":null},{\"text\":\"AM 通常業務\",\"priority\":\"A\",\"est\":180,\"actual\":0,\"done\":true,\"linkKey\":null},{\"text\":\"DXの思考法\",\"priority\":\"B\",\"est\":15,\"actual\":0,\"done\":false,\"linkKey\":null},{\"text\":\"note作成\",\"priority\":\"B\",\"est\":30,\"actual\":0,\"done\":false,\"linkKey\":null},{\"text\":\"PM業務\",\"priority\":\"B\",\"est\":5,\"actual\":0,\"done\":true,\"linkKey\":null}]}","franklin_templates_v1":"[{\"text\":\"note作成\",\"priority\":\"B\",\"est\":30,\"linkKey\":null},{\"text\":\"部屋掃除\",\"priority\":\"C\",\"est\":15,\"linkKey\":null},{\"text\":\"リビング・台所・各部屋掃除\",\"priority\":\"C\",\"est\":20,\"linkKey\":null},{\"text\":\"水回り掃除\",\"priority\":\"C\",\"est\":15,\"linkKey\":null},{\"text\":\"計画立案\",\"priority\":\"A\",\"est\":0,\"linkKey\":null},{\"text\":\"振り返り\",\"priority\":\"A\",\"est\":0,\"linkKey\":null},{\"text\":\"トイレ掃除\",\"priority\":\"C\",\"est\":5,\"linkKey\":null},{\"text\":\"基本情報技術者試験\",\"priority\":\"B\",\"est\":30,\"linkKey\":\"mg1790449722964\"},{\"text\":\"ジム\",\"priority\":\"B\",\"est\":20,\"linkKey\":\"mg1790469859431\"},{\"text\":\"AIツール改良\",\"priority\":\"B\",\"est\":30,\"linkKey\":null},{\"text\":\"移動\",\"priority\":\"A\",\"est\":45,\"linkKey\":null},{\"text\":\"AM 通常業務\",\"priority\":\"A\",\"est\":180,\"linkKey\":null},{\"text\":\"DXの思考法\",\"priority\":\"B\",\"est\":15,\"linkKey\":null}]","daily_notes_v1":"{\"2026-09-30\":\"縦割り文化の強さ\\n→企業の課題感⇆社員の課題感\\n\\n思考の違い\\n目の前の仕事への集中力\\n\\nマーケティング戦略\\n現場では施策、社長に対しては戦略\\n１つずつコツコツ実行していくだけ\\n\\n解釈と違和感の一致\\n自分が何を求めているのか\\n→楽しそうかどうか\\n\\n自分でもう出来る。\",\"2026-10-01\":\"自律心・行動力・決断力\\n主語！\\n\\n\"}"}
+</script>
+<script>
+(function(){
+  try{
+    const raw = document.getElementById("bootstrapData").textContent;
+    const data = JSON.parse(raw);
+    if(!localStorage.getItem("bootstrap_applied_v2")){
+      Object.keys(data).forEach(k=>{
+        if(localStorage.getItem(k)==null){ localStorage.setItem(k, data[k]); }
+      });
+      localStorage.setItem("bootstrap_applied_v2","1");
+    }
+  }catch(e){ /* ブートストラップ失敗時は何もしない */ }
+})();
+</script>
+<div class="wrap">
+  <h1>📍 セルフマネジメント</h1>
+
+  <div class="tabs">
+    <button class="tabbtn active" data-tab="franklin">Daily</button>
+    <button class="tabbtn" data-tab="monthly">Monthly</button>
+    <button class="tabbtn" data-tab="genzaichi">Annual goal</button>
+    <button class="tabbtn" data-tab="values">価値観・感謝・学び・課題・体調</button>
+  </div>
+
+  <div id="tab-genzaichi" class="tabpanel">
+  <div class="topbar">
+    <p class="sub">資格名をタップすると内訳が開きます。編集モードで項目の追加・修正・削除ができます。</p>
+    <button class="editToggle" id="editToggle">✏️ 編集</button>
+  </div>
+
+  <div class="card">
+    <div class="chead"><h2>これまでの完了タスク内訳</h2></div>
+    <div id="annualAbc"></div>
+  </div>
+
+  <div class="card" id="goalsCard">
+    <div class="chead"><h2>目標</h2></div>
+    <div class="addTaskRow">
+      <select id="goalTitle"></select>
+      <input type="date" id="goalDeadline">
+      <button id="addGoalBtn" class="addbtn">＋ 追加</button>
+    </div>
+    <div id="goalList"></div>
+  </div>
+
+  <div class="overall">
+    <div class="overall-top">
+      <span>全体の進捗</span>
+      <span class="overall-num" id="overallPct">0%</span>
+    </div>
+    <div class="bigtrack"><div class="bigfill" id="overallFill" style="width:0%"></div></div>
+  </div>
+
+  <section id="sections"></section>
+  <button class="addCardBtn" id="addCardBtn" style="display:none;">＋ 新しいカードを追加</button>
+
+  <details class="exp">
+    <summary>これまでの経歴（EC・販売・マーケティング関連）</summary>
+    <ul>
+      <li>EC販売の実務経験</li>
+      <li>半年で5,000万円売上の経験</li>
+      <li>中古販売で月60万円程度の実績</li>
+      <li>市場分析</li>
+      <li>顧客分析</li>
+      <li>ペルソナ／ターゲット設定</li>
+      <li>商品分析・商品詳細の把握</li>
+      <li>価格設定</li>
+      <li>販売方法の設計</li>
+      <li>SEO分析</li>
+      <li>競合調査</li>
+      <li>顧客調査</li>
+      <li>広告</li>
+      <li>顧客への訴求方法</li>
+      <li>ブランド価値向上</li>
+      <li>「売れない原因」を商品・顧客・競合・訴求・導線などに分解して考える</li>
+    </ul>
+  </details>
+
+  <button class="reset" id="resetBtn">すべてリセット（内容も含む）</button>
+  </div>
+
+  <div id="tab-franklin" class="tabpanel active">
+    <div class="daynav">
+      <button class="navbtn" id="prevDay">◀</button>
+      <div class="daylabel" id="dayLabel">9月23日（水）</div>
+      <button class="navbtn" id="nextDay">▶</button>
+      <button class="todayBtn" id="todayBtn">今日</button>
+    </div>
+
+    <div id="streakBanner"></div>
+
+    <div class="overall">
+      <div class="overall-top"><span>本日の完了</span><span class="overall-num" id="fPct">0%</span></div>
+      <div class="bigtrack"><div class="bigfill" id="fFill" style="width:0%"></div></div>
+      <div class="ftime" id="fTime">予定 0分 ／ 実績 0分</div>
+      <div id="priorityBreakdown"></div>
+    </div>
+
+    <div class="card">
+      <div class="chead"><h2>タスクを登録</h2></div>
+      <div class="addTaskRow">
+        <input type="text" id="taskText" placeholder="タスク内容">
+        <select id="taskPriority">
+          <option value="A">A（最優先）</option>
+          <option value="B">B（重要）</option>
+          <option value="C">C（余裕があれば）</option>
+        </select>
+        <input type="number" id="taskEst" placeholder="予定(分)" min="0" step="5">
+        <select id="taskStart"></select>
+        <select id="taskLink"><option value="">現在地トラッカーと紐付け（任意）</option></select>
+        <button id="addTaskBtn" class="addbtn">＋ 追加</button>
+        <button id="saveTemplateBtn" class="tmpBtn">☆ よく使うタスクに登録</button>
+      </div>
+      <div class="chipLabel">よく使うタスク（タップで即登録）</div>
+      <div class="chipRow" id="templateChips"></div>
+    </div>
+
+    <div class="card">
+      <div class="chead"><h2>固定タスク（ルーティン）</h2><button class="tmpBtn" id="saveRoutineBtn">📌 今日の内容をルーティン保存</button></div>
+      <p class="sub" style="margin:6px 0 10px;">平日などよく繰り返す内容をまとめて登録できます。タップで一括登録、✕で削除。</p>
+      <div class="chipRow" id="routineChips"></div>
+    </div>
+
+    <div id="taskGroups"></div>
+
+    <div class="card">
+      <div class="chead"><h2>時間割</h2></div>
+      <div class="timetable-wrap">
+        <div class="timetable" id="timetable"></div>
+      </div>
+      <div id="unscheduled"></div>
+    </div>
+
+    <div class="card">
+      <div class="chead"><h2>今日のメモ・振り返り</h2><button class="tmpBtn slackBtn" id="dailySlackBtn">📋 Slackへ</button></div>
+      <textarea class="mreflect" id="dailyMemo" placeholder="今日感じたこと、気づき、明日への改善点など"></textarea>
+    </div>
+
+    <div class="card">
+      <div class="chead"><h2>今日のコンディション</h2><button class="tmpBtn" id="periodToggle">🤍</button></div>
+      <div id="phaseAlert"></div>
+      <div id="condSliders"></div>
+    </div>
+
+    <div class="card">
+      <div class="chead"><h2>今日の金銭管理</h2><span class="pct" id="moneyTotal">¥0</span></div>
+      <div class="addTaskRow">
+        <input type="text" id="moneyItem" placeholder="使った項目">
+        <input type="number" id="moneyAmount" placeholder="金額" min="0" step="10">
+        <button id="addMoneyBtn" class="addbtn">＋ 追加</button>
+      </div>
+      <div id="moneyList"></div>
+    </div>
+  </div>
+
+  <div id="tab-monthly" class="tabpanel">
+    <div class="daynav">
+      <button class="navbtn" id="prevMonth">◀</button>
+      <div class="daylabel" id="monthLabel">2026年9月</div>
+      <button class="navbtn" id="nextMonth">▶</button>
+      <button class="todayBtn" id="thisMonthBtn">今月</button>
+    </div>
+    <div class="card">
+      <div class="chead"><h2>今月の目標</h2></div>
+      <div class="addTaskRow">
+        <input type="text" id="mgTitle" placeholder="今月の目標（例：SQLを基礎から固める）">
+        <select id="mgLinkGoal"><option value="">Annual goalと紐付け（任意）</option></select>
+        <input type="number" id="mgTarget" placeholder="目標達成率%" min="0" max="100" step="5">
+        <button id="addMGoalBtn" class="addbtn">＋ 追加</button>
+      </div>
+      <div id="monthGoalTargets"></div>
+    </div>
+
+    <div class="overall">
+      <div class="overall-top"><span>月間実績時間</span><span class="overall-num" id="mTime">0時間</span></div>
+      <div class="ftime" id="mSummary">タスク 0件／完了 0件（平均達成率 0%）</div>
+    </div>
+    <div id="monthList"></div>
+
+    <div class="card">
+      <div class="chead"><h2>振り返り</h2><button class="tmpBtn slackBtn" id="monthlySlackBtn">📋 Slackへ</button></div>
+      <textarea class="mreflect" id="monthReflect" placeholder="今月の振り返りを書く"></textarea>
+    </div>
+
+    <div class="card">
+      <div class="chead"><h2>コンディション推移</h2></div>
+      <div id="condChart"></div>
+      <div class="chartlegend" id="condLegend"></div>
+    </div>
+
+    <div class="card">
+      <div class="chead"><h2>金銭と体調の推移</h2></div>
+      <div id="moneyChart"></div>
+      <div class="ftime" id="moneySummary"></div>
+    </div>
+
+    <div class="card">
+      <div class="chead"><h2>周期フェーズ別の傾向</h2></div>
+      <p class="sub" style="margin:0 0 8px;">一般的に知られている傾向の紹介です（あなたの数値を評価するものではありません）。</p>
+      <div id="phaseStats"></div>
+    </div>
+
+    <div class="card">
+      <div class="chead"><h2>優先度別の完了内訳（今月）</h2></div>
+      <div id="monthlyAbc"></div>
+    </div>
+  </div>
+
+  <details class="exp" id="dataMgmt">
+    <summary>🔄 データの書き出し・読み込み（スマホ⇔PC間の移行）</summary>
+    <p class="sub" style="margin:10px 0 12px;">スマホで記録した内容をPCに移す場合は、スマホ側で「書き出す」→ファイルをAirDropやメール等でPCに送る→PC側で同じページを開いて「読み込む」の順で行ってください。読み込むと、今開いている端末のデータは上書きされます。</p>
+    <button id="exportBtn" class="tmpBtn">⬇️ このデータを書き出す</button>
+    <button id="importBtn" class="tmpBtn">⬆️ ファイルを読み込む</button>
+    <input type="file" id="importFile" accept="application/json" style="display:none;">
+  </details>
+
+  <div id="tab-values" class="tabpanel">
+    <div class="card">
+      <div class="chead"><h2>価値観・感謝・学び・課題・体調</h2></div>
+      <p class="sub" style="margin:6px 0 12px;">Dailyの「今日のメモ・振り返り」で「価値観＞」「感謝＞」「学び＞」「課題＞」「体調＞」（全角半角どちらも可）と書くと、ここに自動で転記されます。ここから直接追加することもできます。</p>
+      <div class="addTaskRow">
+        <select id="vCat"><option value="価値観">価値観</option><option value="感謝">感謝</option><option value="学び">学び</option><option value="課題">課題</option><option value="体調">体調</option></select>
+        <input type="text" id="vText" placeholder="内容を入力（体調は「不調の内容→どう回復したか」がおすすめ）">
+        <button id="vAddBtn" class="addbtn">＋ 追加</button>
+      </div>
+    </div>
+    <div class="card"><div class="chead"><h2>💎 価値観</h2></div><div id="vlist_values"></div></div>
+    <div class="card"><div class="chead"><h2>🙏 感謝</h2></div><div id="vlist_gratitude"></div></div>
+    <div class="card"><div class="chead"><h2>📚 学び</h2></div><div id="vlist_learning"></div></div>
+    <div class="card"><div class="chead"><h2>📝 課題</h2></div><div id="vlist_issues"></div></div>
+    <div class="card"><div class="chead"><h2>💗 体調（回復の記録）</h2></div><div id="vlist_health"></div></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const SEED = [
+    {
+      id:"it",
+      title:"IT資格取得",
+      items:[
+        {name:"基本情報技術者試験", children:[
+          {name:"①テクノロジ系（コンピュータの技術・仕組み）", children:[
+            {name:"基礎理論", children:["離散数学","応用数学","アルゴリズムとプログラミング"]},
+            {name:"コンピュータシステム", children:["プロセッサ、メモリ、バスなどのコンピュータ構成要素","OSやミドルウェアなどのソフトウェア","ハードウェア"]},
+            {name:"技術要素", children:["ヒューマンインタフェース","マルチメディア","データベース","ネットワーク","セキュリティ"]},
+            {name:"開発技術", children:["システム開発ライフサイクル","要件定義","設計","プログラミング","テスト","ソフトウェア開発管理"]}
+          ]},
+          {name:"②マネジメント系（プロジェクトやサービスの管理）", children:[
+            {name:"プロジェクトマネジメント", children:["プロジェクト計画","工程管理","コスト管理","リスク管理"]},
+            {name:"サービスマネジメント", children:["サービスレベル管理","可用性管理","ITサービス運用"]},
+            {name:"システム監査", children:["システム監査の計画","実施","評価"]}
+          ]},
+          {name:"③ストラテジ系（経営・ビジネス・法務）", children:[
+            {name:"システム戦略", children:["システム化計画","要件定義","調達計画"]},
+            {name:"経営戦略・マネジメント", children:["経営理念（MVV）","SWOT分析","マーケティング","ERP"]},
+            {name:"企業と法務", children:["企業活動","組織論","会計","財務","知的財産権（著作権法・特許法など）","労働法規"]}
+          ]}
+        ]},
+        {name:"G検定", children:[
+          {name:"①人工知能（AI）とは", children:["人工知能の定義","歴史","主要なアプローチ","人工知能分野で議論されている問題（シンギュラリティ、トレイ・テストなど）"]},
+          {name:"②人工知能をめぐる動向", children:["探索・推論","知識表現","第1次・第2次ブーム（エキスパートシステムなど）の背景と限界","機械学習・ディープラーニングに至る流れ"]},
+          {name:"③機械学習の具体的手法", children:["教師あり学習（回帰、分類）","教師なし学習（クラスタリング、次元削減）強化学習","評価指標（混同行列、精度、適合率、再現率など）"]},
+          {name:"④ディープラーニングの概要", children:["ニューラルネットワークの仕組み（活性化関数、誤差逆伝播法、勾配消失問題）","隠れ層の種類と発展（CNN、RNN、LSTM、Transformerなど）"]},
+          {name:"⑤ディープラーニングの手法・応用", children:["画像認識（物体検出、セマンティックセグメンテーション）","自然言語処理（Word2Vec、大規模言語モデルなど）","生成AI（GAN、拡散モデル）","マルチモーダル","転移学習"]},
+          {name:"⑥AIプロジェクトとデータ・数学基礎", children:["データの収集・前処理","AIプロジェクトの進め方（PoC、アジャイル開発）","数理・統計の基礎（確率・統計、線形代数、微分などの基本知識）"]},
+          {name:"⑦法律・倫理・社会問題", children:["AIに関する著作権","契約","プライバシー","データ利活用に関する法規制","AI倫理","ガバナンス","ガイドライン（国内外の動向"]}
+        ]},
+        {name:"SQL", children:["「データ操作」","「データ定義」","「データ制御」"]},
+        {name:"PM系資格", children:[
+          {name:"プロジェクトマネジメント（最重要・レベル4）", children:[
+            "プロジェクト統合マネジメント（プロジェクト憲章、プロジェクト管理計画、変更管理、クローズアウト）",
+            "プロジェクトスコープマネジメント（要件定義、スコープ定義、WBS作成、スコープ検証・コントロール）",
+            "プロジェクトスケジュールマネジメント（アクティビティ定義、アローダイアグラム/PERT、クリティカルパス法、CCPM、進捗管理）",
+            "プロジェクトコストマネジメント（コスト見積もり、類推見積、ボトムアップ見積、ファンクションポイント法、予算設定、EVM/アーンドバリューマネジメント）",
+            "プロジェクト品質マネジメント（品質計画、品質保証、品質管理、QC七つ道具、レビュー、テスト管理）",
+            "プロジェクト資源マネジメント（チーム編成、要員管理、役割・責任、チーム育成、コンフリクトマネジメント）",
+            "プロジェクトコミュニケーションマネジメント（コミュニケーション計画、情報配布、ステークホルダー報告）",
+            "プロジェクトリスクマネジメント（リスク特定、定性的リスク分析、定量リスク分析、リスク対応計画/回避・転嫁・軽減・受容、リスク監視）",
+            "プロジェクト調達マネジメント（調達計画、RFP/提案依頼書、ベンダー選定基準、契約管理、SLA）",
+            "プロジェクトステークホルダーマネジメント（ステークホルダー特定、エンゲージメント管理）",
+            "アジャイルプロジェクトマネジメント（スクラム、アジャイルマニフェスト、ベロシティ、バーンダウンチャート）"
+          ]},
+          {name:"システム企画（レベル3）", children:["システム化計画（全体最適化、費用対効果分析/ROI、投資評価）","要件定義プロセス（業務要件、機能要件、非機能要件の定義）"]},
+          {name:"システム開発技術（レベル3）", children:["開発プロセス（共通フレーム/SLCP、ウォーターフォールモデル、プロトタイピングモデル）","設計・テスト（システム設計、単体テスト、結合テスト、システムテスト、運用テスト）"]},
+          {name:"ソフトウェア開発管理技術（レベル3）", children:["構成管理・変更管理（構成識別、バージョン管理、ベースライン、構成監査、リポジトリ）"]},
+          {name:"サービスマネジメント（レベル3）", children:["サービスマネジメント（ITIL、サービスデザイン、サービス移行、サービス運用、インシデント管理、問題管理、リリース管理）"]},
+          {name:"情報セキュリティ（レベル3）", children:["情報セキュリティ管理（ISMS、セキュリティポリシー、リスクアセスメント、組織的・人的セキュリティ対策）","セキュリティ技術（暗号化技術、共通鍵・公開鍵暗号、デジタル署名、認証技術、マルウェア対策、サイバー攻撃手法と対策）"]},
+          {name:"法務（レベル3）", children:["知的財産権（著作権法、産業財産権、特許法、不正競争防止法）","労働関連法・取引契約（労働者派遣法、民法/請負契約・準委任契約、下請法、機密保持契約/NDA）"]},
+          {name:"プロジェクトの立ち上げ・計画", children:[
+            "プロジェクト目標（スコープ・納期・コスト・品質）の明確化と制約条件の評価",
+            "開発規模・工数の見積もり（ファンクションポイント法、類推法などの妥当性検証）",
+            "要員計画・体制構築（スキルバランス、複数ベンダー混在環境の体制策定）",
+            "スケジュール・WBSの策定（クリティカルパスの特定、先行・後行タスクの整合性）"
+          ]},
+          {name:"プロジェクトの実行・コントロール", children:[
+            "進捗・コストの予実管理（EVMを用いたトレンド分析、遅延回復策の策定）",
+            "品質管理（バグ密度・テスト消化率の分析、品質目標未達への対策、レビューの形骸化防止）",
+            "課題・リスク管理（予期せぬリスクの顕在化、課題の優先順位付けと解決策の実行）",
+            "変更管理（顧客からの仕様変更、法改正に伴う追加要件の影響分析と承認プロセス）",
+            "ステークホルダー・チームマネジメント（顧客との合意形成、要員のモチベーション維持、多国籍/リモート体制の管理）"
+          ]},
+          {name:"プロジェクトの終結", children:["成果物の納品と顧客による受け入れテストの支援","プロジェクト全体の振り返りと評価（Lessons Learned/組織の資産化）"]}
+        ]}
+      ]
+    },
+    { id:"note", title:"note作成", items:["書籍確認","タスク整理"] },
+    { id:"toeic700", title:"TOEIC700点", items:["TOEIC700点"] },
+    { id:"diet", title:"ダイエット", items:["体脂肪率25%","体重45kg"] },
+    { id:"fukugyo", title:"複業案件", items:["複業クラウド案件調査","案件調査確認スクリプト作成","現在の資格や状況と照会","いつまでに何を取得するのか決定"] },
+    { id:"marketing", title:"マーケティング系資格", items:["マーケティング系資格"] },
+    { id:"ec", title:"(ECサイト実証実験)", items:["(ECサイト実証実験)"] },
+  ];
+
+  const DATA_KEY = "genzaichi_tracker_data_v1";
+  const STORE_KEY = "genzaichi_tracker_v5";
+
+  let workingData;
+  try{
+    const raw = localStorage.getItem(DATA_KEY);
+    workingData = raw ? JSON.parse(raw) : JSON.parse(JSON.stringify(SEED));
+  }catch(e){ workingData = JSON.parse(JSON.stringify(SEED)); }
+  // マイグレーション：カード名の改名を既存保存データにも反映
+  (function migrate(){
+    const f = workingData.find(c=>c.id==="fukugyo");
+    if(f && f.title==="複業クラウド案件獲得"){ f.title = "複業案件"; }
+  })();
+
+  let state = {};
+  try{ const raw = localStorage.getItem(STORE_KEY); if(raw) state = JSON.parse(raw); }catch(e){ state = {}; }
+
+  function saveData(){ try{ localStorage.setItem(DATA_KEY, JSON.stringify(workingData)); }catch(e){} }
+  function saveState(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){} }
+
+  let editMode = false;
+  let openPaths = {}; // 開いているグループのキーを記憶（再描画時も開閉状態を保つ）
+
+  const pctEls = {}, fillEls = {}, linkEls = {};
+  function reg(map, key, el){ (map[key] = map[key]||[]).push(el); }
+
+  function computeVal(node, path){
+    if(typeof node === "string"){
+      return state[path.concat(node).join("|")] || 0;
+    }
+    const cp = path.concat(node.name);
+    const vals = node.children.map(c=>computeVal(c, cp));
+    return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length) : 0;
+  }
+
+  function renameLeaf(oldKey, newKey){
+    if(state[oldKey]!=null){ state[newKey] = state[oldKey]; delete state[oldKey]; }
+  }
+
+  function buildLeaf(name, path, siblings, idx){
+    const key = path.concat(name).join("|");
+    const val = state[key] || 0;
+    const row = document.createElement("div");
+    row.className = "item-row";
+    row.innerHTML = `<div class="item-body">
+        <div class="item-top"><span>${name}</span><span class="item-pct">${val}%</span></div>
+        <input type="range" min="0" max="100" step="5" value="${val}">
+        <div class="tlinktime" style="display:none;"></div>
+      </div>`;
+    reg(pctEls, key, row.querySelector(".item-pct"));
+    reg(linkEls, key, row.querySelector(".tlinktime"));
+    row.querySelector("input").addEventListener("input", function(){
+      state[key] = parseInt(this.value,10);
+      saveState();
+      updateAll();
+    });
+    if(editMode){
+      const ebtn = document.createElement("button");
+      ebtn.className = "ebtn"; ebtn.textContent = "✏️"; ebtn.title="名前を変更";
+      ebtn.addEventListener("click", ()=>{
+        const nn = prompt("項目名を編集", name);
+        if(nn && nn.trim() && nn.trim()!==name){
+          const newKey = path.concat(nn.trim()).join("|");
+          renameLeaf(key, newKey);
+          siblings[idx] = nn.trim();
+          saveData(); saveState(); renderAll();
+        }
+      });
+      const dbtn = document.createElement("button");
+      dbtn.className = "ebtn del"; dbtn.textContent = "🗑"; dbtn.title="削除";
+      dbtn.addEventListener("click", ()=>{
+        if(confirm(`「${name}」を削除しますか？`)){
+          siblings.splice(idx,1);
+          delete state[key];
+          saveData(); saveState(); renderAll();
+        }
+      });
+      row.appendChild(ebtn); row.appendChild(dbtn);
+    }
+    return row;
+  }
+
+  function buildAddRow(children, path, groupKey){
+    const wrap = document.createElement("div");
+    wrap.className = "addrow";
+    const b1 = document.createElement("button");
+    b1.className = "addbtn"; b1.textContent = "＋ 小項目";
+    b1.addEventListener("click", ()=>{
+      const nn = prompt("小項目名を入力");
+      if(nn && nn.trim()){ children.push(nn.trim()); saveData(); openPaths[groupKey]=true; renderAll(); }
+    });
+    const b2 = document.createElement("button");
+    b2.className = "addbtn"; b2.textContent = "＋ グループ";
+    b2.addEventListener("click", ()=>{
+      const nn = prompt("グループ名を入力");
+      if(nn && nn.trim()){ children.push({name:nn.trim(), children:[]}); saveData(); openPaths[groupKey]=true; renderAll(); }
+    });
+    wrap.appendChild(b1); wrap.appendChild(b2);
+    return wrap;
+  }
+
+  function buildGroup(node, path, depth, siblings, idx){
+    const cp = path.concat(node.name);
+    const key = cp.join("|");
+    const val = computeVal(node, path);
+    const wrap = document.createElement("div");
+    wrap.className = "group depth"+depth + (openPaths[key] ? " open" : "");
+    const head = document.createElement("div");
+    head.className = "ghead";
+    head.innerHTML = `<span class="gname"><span class="arrow">▸</span><span>${node.name}</span></span><span class="gpct">${val}%</span>`;
+    head.addEventListener("click", (e)=>{
+      if(e.target.classList.contains("ebtn")) return;
+      const isOpen = wrap.classList.toggle("open");
+      if(isOpen) openPaths[key]=true; else delete openPaths[key];
+    });
+    if(editMode){
+      const ebtn = document.createElement("button");
+      ebtn.className = "ebtn"; ebtn.textContent = "✏️"; ebtn.title="名前を変更";
+      ebtn.addEventListener("click", (e)=>{
+        e.stopPropagation();
+        const nn = prompt("グループ名を編集", node.name);
+        if(nn && nn.trim() && nn.trim()!==node.name){ node.name = nn.trim(); saveData(); renderAll(); }
+      });
+      const dbtn = document.createElement("button");
+      dbtn.className = "ebtn del"; dbtn.textContent = "🗑"; dbtn.title="削除";
+      dbtn.addEventListener("click", (e)=>{
+        e.stopPropagation();
+        if(confirm(`「${node.name}」とその中身をすべて削除しますか？`)){
+          siblings.splice(idx,1);
+          saveData(); renderAll();
+        }
+      });
+      head.appendChild(ebtn); head.appendChild(dbtn);
+    }
+    const track = document.createElement("div");
+    track.className = "gtrack";
+    track.innerHTML = `<div class="gfill" style="width:${val}%"></div>`;
+    const childrenEl = document.createElement("div");
+    childrenEl.className = "gchildren";
+    node.children.forEach((c,i)=>{
+      childrenEl.appendChild(typeof c === "string" ? buildLeaf(c, cp, node.children, i) : buildGroup(c, cp, depth+1, node.children, i));
+    });
+    if(editMode) childrenEl.appendChild(buildAddRow(node.children, cp, key));
+    wrap.appendChild(head);
+    wrap.appendChild(track);
+    wrap.appendChild(childrenEl);
+    reg(pctEls, key, head.querySelector(".gpct"));
+    reg(fillEls, key, track.querySelector(".gfill"));
+    return wrap;
+  }
+
+  function cardVal(card){
+    const path = [card.id];
+    const vals = card.items.map(it => computeVal(it, path));
+    return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length) : 0;
+  }
+
+  const sectionsEl = document.getElementById("sections");
+
+  function buildCard(card, idx){
+    const path = [card.id];
+    const val = cardVal(card);
+    const wrap = document.createElement("div");
+    wrap.className = "card";
+    const chead = document.createElement("div");
+    chead.className = "chead";
+    chead.innerHTML = `<h2>${card.title}</h2><span class="pct">${val}%</span>`;
+    if(editMode){
+      const ebtn = document.createElement("button");
+      ebtn.className = "ebtn"; ebtn.textContent = "✏️"; ebtn.title="名前を変更";
+      ebtn.addEventListener("click", ()=>{
+        const nn = prompt("カード名を編集", card.title);
+        if(nn && nn.trim() && nn.trim()!==card.title){ card.title = nn.trim(); saveData(); renderAll(); }
+      });
+      const dbtn = document.createElement("button");
+      dbtn.className = "ebtn del"; dbtn.textContent = "🗑"; dbtn.title="削除";
+      dbtn.addEventListener("click", ()=>{
+        if(confirm(`「${card.title}」カードを削除しますか？`)){
+          workingData.splice(idx,1);
+          saveData(); renderAll();
+        }
+      });
+      chead.appendChild(ebtn); chead.appendChild(dbtn);
+    }
+    wrap.appendChild(chead);
+    const track = document.createElement("div");
+    track.className = "track";
+    track.innerHTML = `<div class="fill" style="width:${val}%"></div>`;
+    wrap.appendChild(track);
+    const cardLink = document.createElement("div");
+    cardLink.className = "tlinktime"; cardLink.style.display = "none";
+    wrap.appendChild(cardLink);
+    reg(linkEls, card.id, cardLink);
+    reg(pctEls, card.id, chead.querySelector(".pct"));
+    reg(fillEls, card.id, track.querySelector(".fill"));
+    card.items.forEach((it,i)=>{
+      wrap.appendChild(typeof it === "string" ? buildLeaf(it, path, card.items, i) : buildGroup(it, path, 1, card.items, i));
+    });
+    if(editMode) wrap.appendChild(buildAddRow(card.items, path, card.id));
+    sectionsEl.appendChild(wrap);
+  }
+
+  function collectLeafVals(items, path, out){
+    items.forEach(it=>{
+      if(typeof it === "string"){ out.push(state[path.concat(it).join("|")]||0); }
+      else { collectLeafVals(it.children, path.concat(it.name), out); }
+    });
+  }
+  function updateGroups(items, path){
+    items.forEach(it=>{
+      if(typeof it !== "string"){
+        const cp = path.concat(it.name);
+        const key = cp.join("|");
+        const v = computeVal(it, path);
+        (pctEls[key]||[]).forEach(el=>el.textContent=v+"%");
+        (fillEls[key]||[]).forEach(el=>el.style.width=v+"%");
+        updateGroups(it.children, cp);
+      }
+    });
+  }
+  function updateAll(){
+    let all = [];
+    workingData.forEach(card=>{
+      const cv = cardVal(card);
+      (pctEls[card.id]||[]).forEach(el=>el.textContent=cv+"%");
+      (fillEls[card.id]||[]).forEach(el=>el.style.width=cv+"%");
+      collectLeafVals(card.items, [card.id], all);
+      updateGroups(card.items, [card.id]);
+    });
+    const overall = all.length ? Math.round(all.reduce((a,b)=>a+b,0)/all.length) : 0;
+    document.getElementById("overallPct").textContent = overall+"%";
+    document.getElementById("overallFill").style.width = overall+"%";
+    if(window.refreshGoalProgress) window.refreshGoalProgress();
+  }
+
+  function renderAll(){
+    sectionsEl.innerHTML = "";
+    Object.keys(pctEls).forEach(k=>delete pctEls[k]);
+    Object.keys(fillEls).forEach(k=>delete fillEls[k]);
+    Object.keys(linkEls).forEach(k=>delete linkEls[k]);
+    workingData.forEach((c,i)=>buildCard(c,i));
+    updateAll();
+    document.getElementById("addCardBtn").style.display = editMode ? "block" : "none";
+    document.getElementById("editToggle").classList.toggle("on", editMode);
+    refreshLinkedTimes();
+  }
+
+  // フランクリンタブと連携：紐付けられたタスクの実績時間を表示（スライダー・％には影響しない）
+  function refreshLinkedTimes(){
+    if(typeof window.getLinkedMinutes !== "function") return;
+    Object.keys(linkEls).forEach(key=>{
+      const mins = window.getLinkedMinutes(key) || 0;
+      const hrs = Math.round(mins/6)/10; // 0.1時間単位
+      linkEls[key].forEach(el=>{
+        if(mins>0){ el.style.display="block"; el.textContent = "⏱ "+hrs+"時間"; }
+        else{ el.style.display="none"; }
+      });
+    });
+  }
+  window.refreshTrackerLinkedTimes = refreshLinkedTimes;
+
+  window.getTrackerLeafOptions = function(){
+    const out = [];
+    function walk(items, path, labelPath){
+      items.forEach(it=>{
+        if(typeof it === "string"){
+          out.push({ key: path.concat(it).join("|"), label: labelPath.concat(it).join(" > ") });
+        } else {
+          walk(it.children, path.concat(it.name), labelPath.concat(it.name));
+        }
+      });
+    }
+    workingData.forEach(card=> walk(card.items, [card.id], [card.title]));
+    return out;
+  };
+
+  // Annual goalの紐付け用：カード／グループ／小項目すべてを選択肢にする
+  window.getTrackerNodeOptions = function(){
+    const out = [];
+    function walk(items, path, labelPath){
+      items.forEach(it=>{
+        if(typeof it === "string"){
+          out.push({ key: path.concat(it).join("|"), label: labelPath.concat(it).join(" > ") });
+        } else {
+          out.push({ key: path.concat(it.name).join("|"), label: labelPath.concat(it.name).join(" > ") });
+          walk(it.children, path.concat(it.name), labelPath.concat(it.name));
+        }
+      });
+    }
+    workingData.forEach(card=>{
+      out.push({ key: card.id, label: card.title });
+      walk(card.items, [card.id], [card.title]);
+    });
+    return out;
+  };
+
+  // 指定ノード（カード／グループ／小項目）の進捗％を取得
+  window.getTrackerNodeValue = function(key){
+    const parts = key.split("|");
+    const card = workingData.find(c=>c.id===parts[0]);
+    if(!card) return 0;
+    if(parts.length===1) return cardVal(card);
+    let items = card.items, path = [parts[0]];
+    for(let i=1;i<parts.length;i++){
+      const name = parts[i];
+      const node = items.find(it => typeof it==="string" ? it===name : it.name===name);
+      if(!node) return 0;
+      if(i === parts.length-1){
+        return typeof node === "string" ? (state[path.concat(name).join("|")]||0) : computeVal(node, path);
+      }
+      if(typeof node === "string") return 0;
+      path = path.concat(node.name);
+      items = node.children;
+    }
+    return 0;
+  };
+
+  document.getElementById("editToggle").addEventListener("click", ()=>{
+    editMode = !editMode;
+    renderAll();
+  });
+  document.getElementById("addCardBtn").addEventListener("click", ()=>{
+    const nn = prompt("新しいカード名を入力");
+    if(nn && nn.trim()){
+      const id = "c" + Date.now();
+      workingData.push({id, title:nn.trim(), items:[]});
+      saveData(); renderAll();
+    }
+  });
+  document.getElementById("resetBtn").addEventListener("click", ()=>{
+    if(confirm("すべての内容と進捗を初期状態にリセットしますか？")){
+      state = {}; workingData = JSON.parse(JSON.stringify(SEED));
+      saveState(); saveData(); location.reload();
+    }
+  });
+
+  renderAll();
+})();
+</script>
+
+<script>
+(function(){
+  // Annual goal：目標（タイトルは定型リストから選択・追加可／期限／達成率）の管理
+  const GOALS_KEY = "annual_goals_v1";
+  let goals = [];
+  try{ const raw = localStorage.getItem(GOALS_KEY); if(raw) goals = JSON.parse(raw); }catch(e){ goals = []; }
+  // マイグレーション：旧フィールド名linkedCardIdをlinkedNodeKeyへ
+  goals.forEach(g=>{ if(g.linkedCardId && !g.linkedNodeKey){ g.linkedNodeKey = g.linkedCardId; } });
+  function gSave(){ try{ localStorage.setItem(GOALS_KEY, JSON.stringify(goals)); }catch(e){} }
+  window.getAnnualGoals = function(){ return goals; };
+  window.getAnnualGoalProgress = function(id){
+    const g = goals.find(x=>x.id===id);
+    if(!g || !g.linkedNodeKey) return 0;
+    return (typeof window.getTrackerNodeValue==="function") ? window.getTrackerNodeValue(g.linkedNodeKey) : 0;
+  };
+
+  // タイトル→トラッカーのノードキーを自動対応
+  const TITLE_MAP = [
+    {title:"基本情報技術者試験", key:"it|基本情報技術者試験"},
+    {title:"G検定", key:"it|G検定"},
+    {title:"SQL", key:"it|SQL"},
+    {title:"PM系資格", key:"it|PM系資格"},
+    {title:"note作成", key:"note"},
+    {title:"TOEIC", key:"toeic700"},
+    {title:"ダイエット", key:"diet"},
+    {title:"複業案件", key:"fukugyo"},
+    {title:"マーケティング系資格", key:"marketing"},
+    {title:"(ECサイト実証実験)", key:"ec"}
+  ];
+  const CUSTOM_TITLES_KEY = "annual_goal_custom_titles_v1";
+  let customTitles = [];
+  try{ const raw = localStorage.getItem(CUSTOM_TITLES_KEY); if(raw) customTitles = JSON.parse(raw); }catch(e){ customTitles = []; }
+  function ctSave(){ try{ localStorage.setItem(CUSTOM_TITLES_KEY, JSON.stringify(customTitles)); }catch(e){} }
+  function keyForTitle(title){ const f = TITLE_MAP.find(o=>o.title===title); return f ? f.key : null; }
+
+  const titleSel = document.getElementById("goalTitle");
+  function populateTitleSel(){
+    const cur = titleSel.value;
+    const all = TITLE_MAP.map(o=>o.title).concat(customTitles);
+    titleSel.innerHTML = all.map(t=>`<option value="${t}">${t}</option>`).join("") + '<option value="__add__">＋ 新しいタイトルを追加</option>';
+    if(all.includes(cur)) titleSel.value = cur;
+  }
+  titleSel.addEventListener("change", ()=>{
+    if(titleSel.value === "__add__"){
+      const nn = prompt("新しい目標タイトルを入力");
+      populateTitleSel();
+      if(nn && nn.trim()){
+        customTitles.push(nn.trim()); ctSave(); populateTitleSel();
+        titleSel.value = nn.trim();
+      }
+    }
+  });
+  populateTitleSel();
+
+  function nodeLabel(key){
+    const opts = (typeof window.getTrackerNodeOptions === "function") ? window.getTrackerNodeOptions() : [];
+    const f = opts.find(o=>o.key===key);
+    return f ? f.label : null;
+  }
+  function fmtDate(d){ if(!d) return "期限未設定"; const [y,m,dd]=d.split("-"); return `${y}/${m}/${dd}`; }
+
+  function renderGoals(){
+    populateTitleSel();
+    const listEl = document.getElementById("goalList");
+    listEl.innerHTML = "";
+    if(goals.length===0){
+      listEl.innerHTML = '<div class="noTask">まだ目標がありません</div>';
+      return;
+    }
+    goals.forEach((g,i)=>{
+      const pct = window.getAnnualGoalProgress(g.id);
+      const label = nodeLabel(g.linkedNodeKey);
+      const row = document.createElement("div");
+      row.className = "goalrow";
+      row.style.flexDirection = "column";
+      row.style.alignItems = "stretch";
+      row.innerHTML = `<div style="display:flex; align-items:center; gap:10px;">
+          <span class="gtitle">${g.title}</span>
+          ${label ? `<span class="catbadge">${label}</span>` : ""}
+          <span class="gdeadline">${fmtDate(g.deadline)}</span>
+          <span class="gdeadline">${pct}%</span>
+          <button class="ebtn del">🗑</button>
+        </div>
+        <div class="gtrack"><div class="gfill" style="width:${pct}%"></div></div>`;
+      row.querySelector(".del").addEventListener("click", ()=>{
+        if(confirm(`「${g.title}」を削除しますか？`)){ goals.splice(i,1); gSave(); renderGoals(); }
+      });
+      listEl.appendChild(row);
+    });
+  }
+  window.refreshGoalProgress = renderGoals;
+
+  // ⑥ これまでの完了タスクの優先度内訳（Dailyの記録全体から集計）
+  function renderAnnualAbc(){
+    const el = document.getElementById("annualAbc");
+    if(!el) return;
+    if(typeof window.getAllTasksFlat!=="function" || typeof window.abcBreakdown!=="function" || typeof window.abcBarHtml!=="function") return;
+    el.innerHTML = window.abcBarHtml(window.abcBreakdown(window.getAllTasksFlat()));
+  }
+  window.refreshAnnualAbc = renderAnnualAbc;
+  renderAnnualAbc();
+
+  document.getElementById("addGoalBtn").addEventListener("click", ()=>{
+    const title = titleSel.value;
+    if(!title || title==="__add__"){ alert("目標タイトルを選択してください"); return; }
+    const deadline = document.getElementById("goalDeadline").value;
+    const linkedNodeKey = keyForTitle(title);
+    goals.push({id:"g"+Date.now(), title, deadline, linkedNodeKey});
+    gSave();
+    document.getElementById("goalDeadline").value = "";
+    renderGoals();
+  });
+
+  renderGoals();
+})();
+</script>
+
+<script>
+(function(){
+  // タブ切り替え
+  document.querySelectorAll(".tabbtn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      document.querySelectorAll(".tabbtn").forEach(b=>b.classList.remove("active"));
+      document.querySelectorAll(".tabpanel").forEach(p=>p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("tab-"+btn.dataset.tab).classList.add("active");
+      if(btn.dataset.tab==="franklin") populateLinkOptions();
+      if(btn.dataset.tab==="monthly") renderMonthly();
+      if(btn.dataset.tab==="values" && window.refreshValues) window.refreshValues();
+      if(btn.dataset.tab==="genzaichi" && window.refreshAnnualAbc) window.refreshAnnualAbc();
+    });
+  });
+
+  // フランクリン：デイリータスク管理
+  const F_KEY = "franklin_tasks_v1";
+  let fData = {};
+  try{ const raw = localStorage.getItem(F_KEY); if(raw) fData = JSON.parse(raw); }catch(e){ fData = {}; }
+  function fSave(){ try{ localStorage.setItem(F_KEY, JSON.stringify(fData)); }catch(e){} }
+
+  let curDate = new Date();
+
+  // 時間割の表示範囲：5:00〜25:00（深夜1時扱い）、15分単位
+  const HOUR_START = 5, HOUR_END = 25, ROWH = 36;
+  function timeOptionsHtml(selected){
+    let html = `<option value="">未設定</option>`;
+    for(let m = HOUR_START*60; m < HOUR_END*60; m += 15){
+      const hh = String(Math.floor(m/60)).padStart(2,"0"), mm = String(m%60).padStart(2,"0");
+      const v = hh+":"+mm;
+      html += `<option value="${v}" ${selected===v?"selected":""}>${v}</option>`;
+    }
+    return html;
+  }
+
+  // 今日のメモ・振り返り（日付ごと）
+  const DNOTE_KEY = "daily_notes_v1";
+  let dNotes = {};
+  try{ const raw = localStorage.getItem(DNOTE_KEY); if(raw) dNotes = JSON.parse(raw); }catch(e){ dNotes = {}; }
+  function dSave(){ try{ localStorage.setItem(DNOTE_KEY, JSON.stringify(dNotes)); }catch(e){} }
+  window.getDailyNotes = function(){ return dNotes; };
+  document.getElementById("dailyMemo").addEventListener("change", function(){
+    dNotes[dstr(curDate)] = this.value; dSave();
+    if(window.refreshValues) window.refreshValues();
+  });
+
+  // Slackへ：内容をコピーしてチャンネルを開く（直接送信はCSP制約により不可）
+  const SLACK_TEST_URL = "https://w1779886303-hos748258.slack.com/archives/C0C68EMQB5E";
+  async function copyAndOpenSlack(text){
+    if(!text || !text.trim()){ alert("内容が空です"); return; }
+    try{ await navigator.clipboard.writeText(text); }
+    catch(e){ prompt("コピーに失敗しました。以下を手動でコピーしてください：", text); }
+    window.open(SLACK_TEST_URL, "_blank");
+    alert("内容をコピーしました。開いたSlackチャンネルに貼り付け（Cmd/Ctrl+V）て送信してください。");
+  }
+  document.getElementById("dailySlackBtn").addEventListener("click", ()=>{
+    const d = dlabel(curDate);
+    copyAndOpenSlack(`【${d}の振り返り】\n${document.getElementById("dailyMemo").value}`);
+  });
+  function dstr(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+  function dlabel(d){
+    const w = ["日","月","火","水","木","金","土"][d.getDay()];
+    return (d.getMonth()+1)+"月"+d.getDate()+"日（"+w+"）";
+  }
+  function tasksFor(key){ if(!fData[key]) fData[key]=[]; return fData[key]; }
+
+  // 現在地トラッカーとの連携：紐付けキーごとの実績時間（分）を合計
+  function getLinkedMinutesFor(key){
+    let sum = 0;
+    Object.keys(fData).forEach(d=>{
+      fData[d].forEach(t=>{ if(t.linkKey===key) sum += (t.actual||0); });
+    });
+    return sum;
+  }
+  window.getLinkedMinutes = getLinkedMinutesFor;
+
+  // Monthly目標（Annual goalと紐付け・月ごとに管理）
+  const MGOALS_KEY = "monthly_goal_items_v1";
+  let mGoals = {};
+  try{ const raw = localStorage.getItem(MGOALS_KEY); if(raw) mGoals = JSON.parse(raw); }catch(e){ mGoals = {}; }
+  function mgSave(){ try{ localStorage.setItem(MGOALS_KEY, JSON.stringify(mGoals)); }catch(e){} }
+  function monthKeyOf(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
+  function monthlyItemsFor(d){ const k=monthKeyOf(d); if(!mGoals[k]) mGoals[k]=[]; return mGoals[k]; }
+
+  // Dailyタスクの紐付け先：閲覧中の日付が属する月のMonthly目標
+  function populateLinkOptions(){
+    const sel = document.getElementById("taskLink");
+    const cur = sel.value;
+    const items = monthlyItemsFor(curDate);
+    sel.innerHTML = '<option value="">Monthlyの目標と紐付け（任意）</option>' +
+      items.map(o=>`<option value="${o.id}">${o.title}</option>`).join("");
+    sel.value = cur;
+  }
+
+  const groupsEl = document.getElementById("taskGroups");
+  function linkLabelOf(key){
+    let found = null;
+    Object.keys(mGoals).forEach(mk=>{ const f = mGoals[mk].find(o=>o.id===key); if(f) found = f; });
+    return found ? found.title : "(削除済み項目)";
+  }
+  function gcalUrl(text, dateKey, details){
+    const start = dateKey.replace(/-/g,"");
+    const nd = new Date(dateKey); nd.setDate(nd.getDate()+1);
+    const end = dstr(nd).replace(/-/g,"");
+    return "https://calendar.google.com/calendar/render?action=TEMPLATE&text="+encodeURIComponent(text)+"&dates="+start+"/"+end+"&details="+encodeURIComponent(details||"");
+  }
+  function icsFor(text, dateKey, details){
+    const start = dateKey.replace(/-/g,"");
+    const nd = new Date(dateKey); nd.setDate(nd.getDate()+1);
+    const end = dstr(nd).replace(/-/g,"");
+    return "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nDTSTART;VALUE=DATE:"+start+"\r\nDTEND;VALUE=DATE:"+end+"\r\nSUMMARY:"+text+"\r\nDESCRIPTION:"+(details||"")+"\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+  }
+  async function saveIcs(text, dateKey, details){
+    try{
+      const downloads = await claude.use("downloads");
+      if(!downloads){ alert("この環境ではカレンダー保存機能が使えません。📅ボタン（Googleカレンダー）をお使いください。"); return; }
+      await downloads.save({ filename: text.replace(/[\\/:*?"<>|]/g,"") + ".ics", data: icsFor(text, dateKey, details) });
+    }catch(e){ alert("保存できませんでした。"); }
+  }
+  const PORDER = ["A","B","C"];
+  const PLABEL = {A:"A：最優先", B:"B：重要", C:"C：余裕があれば"};
+
+  function renderFranklin(){
+    populateLinkOptions();
+    const taskStartEl = document.getElementById("taskStart");
+    if(!taskStartEl.dataset.filled){ taskStartEl.innerHTML = timeOptionsHtml(null); taskStartEl.dataset.filled = "1"; }
+    const key = dstr(curDate);
+    document.getElementById("dayLabel").textContent = dlabel(curDate);
+    document.getElementById("dailyMemo").value = dNotes[key] || "";
+    const tasks = tasksFor(key);
+
+    groupsEl.innerHTML = "";
+    let totalEst=0, totalAct=0, doneCount=0;
+
+    PORDER.forEach(p=>{
+      const list = tasks.filter(t=>t.priority===p);
+      const doneInGroup = list.filter(t=>t.done).length;
+      const g = document.createElement("div");
+      g.className = "pgroup";
+      g.innerHTML = `<h3><span class="pbadge ${p}">${p}</span>${PLABEL[p]}${list.length?` (${doneInGroup}/${list.length})`:""}</h3>`;
+      if(list.length===0){
+        const none = document.createElement("div");
+        none.className = "noTask";
+        none.textContent = "登録なし";
+        g.appendChild(none);
+      }
+      list.forEach(t=>{
+        totalEst += (t.est||0); totalAct += (t.actual||0);
+        if(t.done) doneCount++;
+        const row = document.createElement("div");
+        row.className = "task" + (t.done ? " done" : "");
+        row.innerHTML = `<input type="checkbox" ${t.done?"checked":""}>
+          <div class="tbody">
+            <div class="ttext">${t.text}</div>
+            <div class="tmeta">
+              <span>開始 <select class="startSel">${timeOptionsHtml(t.startTime)}</select></span>
+              <span>予定 <input type="number" min="0" step="5" value="${t.est||0}" class="estIn"> 分</span>
+              <span>実績 <input type="number" min="0" step="5" value="${t.actual||0}" class="actIn"> 分</span>
+              ${t.linkKey ? `<span>🔗 ${linkLabelOf(t.linkKey)}</span>` : ""}
+              <a class="ebtn gcalLink" href="${gcalUrl(t.text, key, '優先度'+t.priority+'／予定'+(t.est||0)+'分')}" target="_blank" rel="noopener" title="Googleカレンダーに追加">📅</a>
+              <button class="ebtn icsBtn" title="Appleカレンダー/リマインダーに追加(.ics)">🍎</button>
+              <button class="ebtn del">🗑</button>
+            </div>
+          </div>`;
+        row.querySelector(".startSel").addEventListener("change", function(){
+          t.startTime = this.value || null; fSave(); renderFranklin();
+        });
+        row.querySelector(".icsBtn").addEventListener("click", ()=>{
+          saveIcs(t.text, key, '優先度'+t.priority+'／予定'+(t.est||0)+'分');
+        });
+        row.querySelector('input[type=checkbox]').addEventListener("change", function(){
+          t.done = this.checked; fSave(); renderFranklin();
+        });
+        row.querySelector(".estIn").addEventListener("change", function(){
+          t.est = parseInt(this.value,10)||0; fSave(); renderFranklin();
+        });
+        row.querySelector(".actIn").addEventListener("change", function(){
+          t.actual = parseInt(this.value,10)||0; fSave(); renderFranklin();
+          if(window.refreshTrackerLinkedTimes) window.refreshTrackerLinkedTimes();
+        });
+        row.querySelector(".del").addEventListener("click", ()=>{
+          const i = tasks.indexOf(t);
+          if(i>-1){ tasks.splice(i,1); fSave(); renderFranklin(); }
+          if(window.refreshTrackerLinkedTimes) window.refreshTrackerLinkedTimes();
+        });
+        g.appendChild(row);
+      });
+      groupsEl.appendChild(g);
+    });
+
+    const pct = tasks.length ? Math.round(doneCount/tasks.length*100) : 0;
+    document.getElementById("fPct").textContent = pct+"%";
+    document.getElementById("fFill").style.width = pct+"%";
+    document.getElementById("fTime").textContent = `予定 ${totalEst}分 ／ 実績 ${totalAct}分`;
+    document.getElementById("priorityBreakdown").innerHTML = abcBarHtml(abcBreakdown(tasks));
+    renderTimetable(tasks);
+    renderStreakBanner(tasks);
+    renderCondition();
+    renderMoney();
+  }
+
+  // ⑦ 継続中のB項目：同じテキストのB優先度タスクが何日連続で登録されているか
+  function streakFor(text, priority){
+    let count=0, d=new Date(curDate);
+    while(true){
+      const list = fData[dstr(d)] || [];
+      if(!list.some(t=>t.text===text && t.priority===priority)) break;
+      count++;
+      d.setDate(d.getDate()-1);
+    }
+    return count;
+  }
+  function renderStreakBanner(tasks){
+    const el = document.getElementById("streakBanner");
+    const bItems = tasks.filter(t=>t.priority==="B");
+    const seen = {};
+    const streaks = [];
+    bItems.forEach(t=>{
+      if(seen[t.text]) return;
+      seen[t.text]=true;
+      const s = streakFor(t.text, "B");
+      if(s>=2) streaks.push(`🔥 ${t.text}：${s}日目`);
+    });
+    el.innerHTML = streaks.length ? `<div class="streakRow">${streaks.join(" ／ ")}</div>` : "";
+  }
+
+  // ⑧ 今日のコンディション（5段階×4項目）
+  const COND_KEY = "daily_condition_v1";
+  const COND_ITEMS = [{id:"energy",label:"エネルギー"},{id:"mood",label:"気分"},{id:"focus",label:"集中力"},{id:"anxiety",label:"不安"}];
+  let condData = {};
+  try{ const raw = localStorage.getItem(COND_KEY); if(raw) condData = JSON.parse(raw); }catch(e){ condData = {}; }
+  function condSave(){ try{ localStorage.setItem(COND_KEY, JSON.stringify(condData)); }catch(e){} }
+  window.getConditionData = function(){ return condData; };
+  function renderCondition(){
+    const key = dstr(curDate);
+    if(!condData[key]) condData[key] = {};
+    const today = condData[key];
+    const el = document.getElementById("condSliders");
+    el.innerHTML = "";
+    COND_ITEMS.forEach(ci=>{
+      const val = today[ci.id] || 3;
+      const row = document.createElement("div");
+      row.className = "item-row";
+      row.innerHTML = `<div class="item-top"><span>${ci.label}</span><span class="item-pct">${val}</span></div>
+        <input type="range" min="1" max="5" step="1" value="${val}">`;
+      row.querySelector("input").addEventListener("input", function(){
+        today[ci.id] = parseInt(this.value,10);
+        row.querySelector(".item-pct").textContent = today[ci.id];
+        condSave();
+      });
+      el.appendChild(row);
+    });
+    document.getElementById("periodToggle").textContent = today.period ? "❤️" : "🤍";
+    renderPhaseAlert(key);
+  }
+  document.getElementById("periodToggle").addEventListener("click", ()=>{
+    const key = dstr(curDate);
+    if(!condData[key]) condData[key] = {};
+    condData[key].period = !condData[key].period;
+    condSave();
+    renderCondition();
+  });
+
+  // 周期フェーズ推定（生理開始日の記録から月経・卵胞・排卵・黄体を推定）
+  function getPeriodStarts(){
+    const dates = Object.keys(condData).filter(k=>condData[k].period).sort();
+    const starts = [];
+    dates.forEach(d=>{
+      const prev = new Date(d); prev.setDate(prev.getDate()-1);
+      const pk = dstr(prev);
+      if(!condData[pk] || !condData[pk].period) starts.push(d);
+    });
+    return starts;
+  }
+  function avgCycleLength(starts){
+    if(starts.length<2) return 28;
+    let total=0, count=0;
+    for(let i=1;i<starts.length;i++){
+      const diff = Math.round((new Date(starts[i]) - new Date(starts[i-1])) / 86400000);
+      if(diff>=15 && diff<=60){ total+=diff; count++; }
+    }
+    return count ? Math.round(total/count) : 28;
+  }
+  function phaseFor(dateKey){
+    const starts = getPeriodStarts();
+    if(starts.length===0) return null;
+    let start = starts[0];
+    for(let i=starts.length-1;i>=0;i--){ if(starts[i]<=dateKey){ start=starts[i]; break; } }
+    const cycleLen = avgCycleLength(starts);
+    const dayNum = Math.round((new Date(dateKey)-new Date(start))/86400000) + 1;
+    const cycleDay = ((dayNum-1) % cycleLen + cycleLen) % cycleLen + 1;
+    const ovulationDay = Math.max(cycleLen-14, 10);
+    if(cycleDay<=5) return "月経";
+    if(cycleDay<=ovulationDay-1) return "卵胞期";
+    if(cycleDay<=ovulationDay+1) return "排卵期";
+    return "黄体期";
+  }
+  function phaseAverages(){
+    const sums = {"月経":{energy:0,mood:0,focus:0,anxiety:0,n:0},"卵胞期":{energy:0,mood:0,focus:0,anxiety:0,n:0},"排卵期":{energy:0,mood:0,focus:0,anxiety:0,n:0},"黄体期":{energy:0,mood:0,focus:0,anxiety:0,n:0}};
+    Object.keys(condData).forEach(k=>{
+      const phase = phaseFor(k);
+      if(!phase) return;
+      const c = condData[k];
+      let hasAny=false;
+      COND_ITEMS.forEach(ci=>{ if(c[ci.id]!=null){ sums[phase][ci.id]+=c[ci.id]; hasAny=true; } });
+      if(hasAny) sums[phase].n++;
+    });
+    Object.keys(sums).forEach(p=>{
+      const s = sums[p];
+      COND_ITEMS.forEach(ci=>{ s[ci.id] = s.n ? Math.round((s[ci.id]/s.n)*10)/10 : null; });
+    });
+    return sums;
+  }
+  window.getPhaseAverages = phaseAverages;
+
+  // 一般的に知られている周期フェーズごとの傾向（個人データの比較ではなく一般知識ベース）
+  const PHASE_INFO = {
+    "月経":   {dot:"🟠", desc:"一般的に体力や気力がやや落ちやすく、だるさを感じやすい時期と言われています。無理せず休養を優先しましょう。"},
+    "卵胞期": {dot:"🟢", desc:"一般的にホルモンバランスが整い始め、心身の調子が上向きやすい時期と言われています。"},
+    "排卵期": {dot:"🟢", desc:"一般的に気力や集中力が高まりやすいとされる時期です。人によっては軽い体調変化を感じることもあります。"},
+    "黄体期": {dot:"🟡", desc:"一般的にPMS（月経前症候群）の影響で気分の浮き沈みや不安を感じやすい時期と言われています。大きな決断は少し先延ばしにするのも一つの方法です。"}
+  };
+  window.PHASE_INFO = PHASE_INFO;
+  function renderPhaseAlert(dateKey){
+    const el = document.getElementById("phaseAlert");
+    const phase = phaseFor(dateKey);
+    if(!phase){ el.innerHTML = ""; return; }
+    const info = PHASE_INFO[phase];
+    el.innerHTML = `<div class="streakRow">${info.dot} ${phase}（推定）：${info.desc}</div>`;
+  }
+
+  // ⑨ 今日の金銭管理
+  const MONEY_KEY = "daily_money_v1";
+  let moneyData = {};
+  try{ const raw = localStorage.getItem(MONEY_KEY); if(raw) moneyData = JSON.parse(raw); }catch(e){ moneyData = {}; }
+  function moneySave(){ try{ localStorage.setItem(MONEY_KEY, JSON.stringify(moneyData)); }catch(e){} }
+  window.getMoneyData = function(){ return moneyData; };
+  function moneyFor(d){ const k=dstr(d); if(!moneyData[k]) moneyData[k]=[]; return moneyData[k]; }
+  function renderMoney(){
+    const list = moneyFor(curDate);
+    const el = document.getElementById("moneyList");
+    el.innerHTML = "";
+    let total = 0;
+    if(list.length===0){ el.innerHTML = '<div class="noTask">まだ登録がありません</div>'; }
+    list.forEach((m,i)=>{
+      total += (m.amount||0);
+      const row = document.createElement("div");
+      row.className = "moneyRow";
+      row.innerHTML = `<span class="mname">${m.item}</span><span class="mamount">¥${(m.amount||0).toLocaleString()}</span><button class="ebtn del">🗑</button>`;
+      row.querySelector(".del").addEventListener("click", ()=>{
+        list.splice(i,1); moneySave(); renderMoney();
+      });
+      el.appendChild(row);
+    });
+    document.getElementById("moneyTotal").textContent = "¥"+total.toLocaleString();
+  }
+  document.getElementById("addMoneyBtn").addEventListener("click", ()=>{
+    const itemEl = document.getElementById("moneyItem");
+    const item = itemEl.value.trim();
+    const amount = parseInt(document.getElementById("moneyAmount").value,10) || 0;
+    if(!item){ alert("項目名を入力してください"); return; }
+    moneyFor(curDate).push({item, amount});
+    moneySave();
+    itemEl.value = "";
+    document.getElementById("moneyAmount").value = "";
+    renderMoney();
+  });
+
+  // 時間割：登録済みタスクを開始時刻をもとに時間軸へ配置（重なりは2列に分けて表示）
+  function renderTimetable(tasks){
+    let hoursHtml = "";
+    for(let h=HOUR_START; h<HOUR_END; h++){
+      hoursHtml += `<div class="thour"><div class="hlabel">${h}:00</div><div class="hslot"></div></div>`;
+    }
+    const gridEl = document.getElementById("timetable");
+    gridEl.innerHTML = hoursHtml + '<div class="tblocks" id="tblocks"></div>';
+    const blocksEl = document.getElementById("tblocks");
+
+    const scheduled = tasks.filter(t=>t.startTime).map(t=>{
+      const [sh,sm] = t.startTime.split(":").map(Number);
+      const startMin = sh*60+sm;
+      const dur = Math.max(t.est||30, 15);
+      return {t, startMin, endMin: startMin+dur};
+    }).filter(x=> x.startMin>=HOUR_START*60 && x.startMin<HOUR_END*60)
+      .sort((a,b)=> a.startMin-b.startMin);
+
+    // 重なり判定：重なっているもの同士は最大2列に分けて配置
+    scheduled.forEach((x,i)=>{ x.lane = 0; });
+    for(let i=0;i<scheduled.length;i++){
+      for(let j=0;j<i;j++){
+        if(scheduled[j].lane===scheduled[i].lane && scheduled[i].startMin < scheduled[j].endMin){
+          scheduled[i].lane = scheduled[j].lane===0 ? 1 : 0;
+        }
+      }
+    }
+    scheduled.forEach(x=>{
+      const t = x.t;
+      const top = (x.startMin - HOUR_START*60) * (ROWH/60);
+      const height = Math.max((x.endMin-x.startMin) * (ROWH/60), 16);
+      const overlapping = scheduled.some(y=> y!==x && y.startMin < x.endMin && x.startMin < y.endMin);
+      const div = document.createElement("div");
+      div.className = "tblock " + t.priority + (t.done ? " done" : "");
+      div.style.top = top+"px";
+      div.style.height = height+"px";
+      if(overlapping){ div.style.width = "48%"; div.style.left = x.lane===0 ? "0" : "50%"; div.style.right = "auto"; }
+      div.textContent = t.startTime+" "+t.text;
+      div.title = t.text+"（"+(t.est||0)+"分）";
+      blocksEl.appendChild(div);
+    });
+
+    const unsched = tasks.filter(t=>!t.startTime);
+    document.getElementById("unscheduled").innerHTML = unsched.length
+      ? '<div class="chipLabel">時間未設定：'+unsched.map(t=>t.text).join("、")+'</div>'
+      : "";
+  }
+
+  document.getElementById("addTaskBtn").addEventListener("click", ()=>{
+    const textEl = document.getElementById("taskText");
+    const text = textEl.value.trim();
+    if(!text) return;
+    const priority = document.getElementById("taskPriority").value;
+    const est = parseInt(document.getElementById("taskEst").value,10) || 0;
+    const linkKey = document.getElementById("taskLink").value || null;
+    const startTime = document.getElementById("taskStart").value || null;
+    tasksFor(dstr(curDate)).push({text, priority, est, actual:0, done:false, linkKey, startTime});
+    fSave();
+    textEl.value = "";
+    document.getElementById("taskEst").value = "";
+    renderFranklin();
+    if(window.refreshTrackerLinkedTimes) window.refreshTrackerLinkedTimes();
+  });
+
+  // よく使うタスク（テンプレート）
+  const TPL_KEY = "franklin_templates_v1";
+  let templates = [];
+  try{ const raw = localStorage.getItem(TPL_KEY); if(raw) templates = JSON.parse(raw); }catch(e){ templates = []; }
+  function tplSave(){ try{ localStorage.setItem(TPL_KEY, JSON.stringify(templates)); }catch(e){} }
+
+  function renderTemplates(){
+    const el = document.getElementById("templateChips");
+    el.innerHTML = "";
+    if(templates.length===0){
+      el.innerHTML = '<span class="noTask">まだありません。フォーム入力後「☆ よく使うタスクに登録」で追加できます</span>';
+      return;
+    }
+    templates.forEach((tpl, i)=>{
+      const chip = document.createElement("div");
+      chip.className = "chip";
+      chip.innerHTML = `<span>${chip_icon(tpl.priority)} ${tpl.text}</span><span class="cx">✕</span>`;
+      chip.querySelector("span:first-child").addEventListener("click", ()=>{
+        tasksFor(dstr(curDate)).push({text:tpl.text, priority:tpl.priority, est:tpl.est, actual:0, done:false, linkKey:tpl.linkKey||null});
+        fSave(); renderFranklin();
+        if(window.refreshTrackerLinkedTimes) window.refreshTrackerLinkedTimes();
+      });
+      chip.querySelector(".cx").addEventListener("click", (e)=>{
+        e.stopPropagation();
+        templates.splice(i,1); tplSave(); renderTemplates();
+      });
+      el.appendChild(chip);
+    });
+  }
+  function chip_icon(p){ return p==="A"?"🔴":p==="B"?"🟠":"🟢"; }
+
+  document.getElementById("saveTemplateBtn").addEventListener("click", ()=>{
+    const text = document.getElementById("taskText").value.trim();
+    if(!text){ alert("タスク内容を入力してから登録してください"); return; }
+    const priority = document.getElementById("taskPriority").value;
+    const est = parseInt(document.getElementById("taskEst").value,10) || 0;
+    const linkKey = document.getElementById("taskLink").value || null;
+    templates.push({text, priority, est, linkKey});
+    tplSave(); renderTemplates();
+  });
+  renderTemplates();
+
+  // 固定タスク（ルーティン）：今日の内容をまとめて保存し、ワンタップで一括登録
+  const ROUTINE_KEY = "franklin_routines_v1";
+  let routines = [];
+  try{ const raw = localStorage.getItem(ROUTINE_KEY); if(raw) routines = JSON.parse(raw); }catch(e){ routines = []; }
+  function routineSave(){ try{ localStorage.setItem(ROUTINE_KEY, JSON.stringify(routines)); }catch(e){} }
+
+  function renderRoutines(){
+    const el = document.getElementById("routineChips");
+    el.innerHTML = "";
+    if(routines.length===0){
+      el.innerHTML = '<span class="noTask">まだありません。今日のタスクを登録してから「📌 今日の内容をルーティン保存」で作成できます</span>';
+      return;
+    }
+    routines.forEach((r,i)=>{
+      const chip = document.createElement("div");
+      chip.className = "chip";
+      chip.innerHTML = `<span>📌 ${r.name}（${r.tasks.length}件）</span><span class="cx">✕</span>`;
+      chip.querySelector("span:first-child").addEventListener("click", ()=>{
+        if(!confirm(`「${r.name}」の${r.tasks.length}件のタスクを今日に一括登録しますか？`)) return;
+        const list = tasksFor(dstr(curDate));
+        r.tasks.forEach(rt=>{
+          list.push({text:rt.text, priority:rt.priority, est:rt.est, actual:0, done:false, linkKey:rt.linkKey||null, startTime:rt.startTime||null});
+        });
+        fSave(); renderFranklin();
+        if(window.refreshTrackerLinkedTimes) window.refreshTrackerLinkedTimes();
+      });
+      chip.querySelector(".cx").addEventListener("click", (e)=>{
+        e.stopPropagation();
+        if(confirm(`ルーティン「${r.name}」を削除しますか？`)){ routines.splice(i,1); routineSave(); renderRoutines(); }
+      });
+      el.appendChild(chip);
+    });
+  }
+
+  document.getElementById("saveRoutineBtn").addEventListener("click", ()=>{
+    const todays = tasksFor(dstr(curDate));
+    if(todays.length===0){ alert("今日のタスクがまだ登録されていません。先にタスクを登録してください。"); return; }
+    const name = prompt("ルーティン名を入力（例：平日ルーティン）");
+    if(!name || !name.trim()) return;
+    const tasks = todays.map(t=>({text:t.text, priority:t.priority, est:t.est, linkKey:t.linkKey||null, startTime:t.startTime||null}));
+    routines.push({id:"r"+Date.now(), name:name.trim(), tasks});
+    routineSave(); renderRoutines();
+  });
+  renderRoutines();
+
+  document.getElementById("prevDay").addEventListener("click", ()=>{ curDate.setDate(curDate.getDate()-1); renderFranklin(); });
+  document.getElementById("nextDay").addEventListener("click", ()=>{ curDate.setDate(curDate.getDate()+1); renderFranklin(); });
+  document.getElementById("todayBtn").addEventListener("click", ()=>{ curDate = new Date(); renderFranklin(); });
+
+  // マンスリー表示
+  let curMonth = new Date();
+  const monthListEl = document.getElementById("monthList");
+
+  // 振り返りの保存（月ごと）
+  const MNOTE_KEY = "monthly_notes_v1";
+  let mNotes = {};
+  try{ const raw = localStorage.getItem(MNOTE_KEY); if(raw) mNotes = JSON.parse(raw); }catch(e){ mNotes = {}; }
+  function mSave(){ try{ localStorage.setItem(MNOTE_KEY, JSON.stringify(mNotes)); }catch(e){} }
+  function noteFor(){ const k=monthKeyOf(curMonth); if(!mNotes[k]) mNotes[k]={reflection:""}; return mNotes[k]; }
+
+  function populateMGoalLinkSel(){
+    const sel = document.getElementById("mgLinkGoal");
+    const cur = sel.value;
+    const ag = (typeof window.getAnnualGoals === "function") ? window.getAnnualGoals() : [];
+    sel.innerHTML = '<option value="">Annual goalと紐付け（任意）</option>' +
+      ag.map(g=>`<option value="${g.id}">${g.title}</option>`).join("");
+    sel.value = cur;
+  }
+
+  function annualGoalTitle(id){
+    const ag = (typeof window.getAnnualGoals === "function") ? window.getAnnualGoals() : [];
+    const f = ag.find(g=>g.id===id);
+    return f ? f.title : null;
+  }
+
+  function renderMonthGoals(){
+    populateMGoalLinkSel();
+    const el = document.getElementById("monthGoalTargets");
+    const items = monthlyItemsFor(curMonth);
+    el.innerHTML = "";
+    if(items.length===0){
+      el.innerHTML = '<div class="noTask">今月の目標を登録しましょう</div>';
+    } else {
+      items.forEach((it,i)=>{
+        const mins = getLinkedMinutesFor(it.id);
+        const hrs = Math.round(mins/6)/10;
+        const row = document.createElement("div");
+        row.className = "mgoalrow";
+        const agTitle = annualGoalTitle(it.linkedGoalId);
+        row.innerHTML = `<div class="gname">${it.title} ${agTitle?`<span class="catbadge">${agTitle}</span>`:""}</div>
+          <div class="tmeta">目標 ${it.targetPct||0}% ／ 実績時間 ${hrs}時間</div>
+          <div class="item-top"><span>達成率</span><span class="item-pct">${it.progressPct||0}%</span></div>
+          <input type="range" min="0" max="100" step="5" value="${it.progressPct||0}" class="mgRange">
+          <button class="ebtn del" style="float:right;">🗑 削除</button>`;
+        row.querySelector(".mgRange").addEventListener("input", function(){
+          it.progressPct = parseInt(this.value,10);
+          row.querySelector(".item-pct").textContent = it.progressPct+"%";
+          mgSave();
+        });
+        row.querySelector(".del").addEventListener("click", ()=>{
+          if(confirm(`「${it.title}」を削除しますか？`)){ items.splice(i,1); mgSave(); renderMonthGoals(); }
+        });
+        el.appendChild(row);
+      });
+    }
+    const refEl = document.getElementById("monthReflect");
+    refEl.value = noteFor().reflection || "";
+  }
+  document.getElementById("addMGoalBtn").addEventListener("click", ()=>{
+    const titleEl = document.getElementById("mgTitle");
+    const title = titleEl.value.trim();
+    if(!title){ alert("目標を入力してください"); return; }
+    const linkedGoalId = document.getElementById("mgLinkGoal").value || null;
+    const targetPct = parseInt(document.getElementById("mgTarget").value,10) || 0;
+    monthlyItemsFor(curMonth).push({id:"mg"+Date.now(), title, linkedGoalId, targetPct, progressPct:0});
+    mgSave();
+    titleEl.value = "";
+    document.getElementById("mgTarget").value = "";
+    renderMonthGoals();
+  });
+  document.getElementById("monthReflect").addEventListener("change", function(){
+    noteFor().reflection = this.value; mSave();
+  });
+  document.getElementById("monthlySlackBtn").addEventListener("click", ()=>{
+    const label = curMonth.getFullYear()+"年"+(curMonth.getMonth()+1)+"月";
+    copyAndOpenSlack(`【${label}の振り返り】\n${document.getElementById("monthReflect").value}`);
+  });
+
+  function renderMonthly(){
+    renderMonthGoals();
+    document.getElementById("monthLabel").textContent = curMonth.getFullYear()+"年"+(curMonth.getMonth()+1)+"月";
+    const y = curMonth.getFullYear(), m = curMonth.getMonth();
+    const daysInMonth = new Date(y, m+1, 0).getDate();
+    monthListEl.innerHTML = "";
+    let monthMin=0, monthTasks=0, monthDone=0, dayCount=0, pctSum=0;
+
+    for(let d=1; d<=daysInMonth; d++){
+      const dt = new Date(y, m, d);
+      const key = dstr(dt);
+      const tasks = fData[key];
+      if(!tasks || tasks.length===0) continue;
+      dayCount++;
+      const done = tasks.filter(t=>t.done).length;
+      const act = tasks.reduce((s,t)=>s+(t.actual||0),0);
+      monthMin += act; monthTasks += tasks.length; monthDone += done;
+      const pct = Math.round(done/tasks.length*100);
+      pctSum += pct;
+      const w = ["日","月","火","水","木","金","土"][dt.getDay()];
+      const row = document.createElement("div");
+      row.className = "mrow";
+      row.innerHTML = `<div class="mdate">${m+1}/${d}（${w}）</div>
+        <div class="mstat">${done}/${tasks.length}件 完了
+          <div class="mbar"><div style="width:${pct}%"></div></div>
+        </div>
+        <div class="mmin">${Math.round(act/6)/10}時間</div>`;
+      monthListEl.appendChild(row);
+    }
+    if(dayCount===0){
+      monthListEl.innerHTML = '<div class="noTask">この月の記録はまだありません</div>';
+    }
+    document.getElementById("mTime").textContent = (Math.round(monthMin/6)/10)+"時間";
+    const avgPct = dayCount ? Math.round(pctSum/dayCount) : 0;
+    document.getElementById("mSummary").textContent = `タスク ${monthTasks}件／完了 ${monthDone}件（平均達成率 ${avgPct}%）`;
+    renderCondChart(y,m,daysInMonth);
+    renderMoneyChart(y,m,daysInMonth);
+    renderPhaseStats();
+    renderMonthlyAbc(y,m,daysInMonth);
+  }
+
+  // ⑧ コンディション推移グラフ（SVG折れ線・4項目）
+  const COND_COLORS = {energy:"#c98a5e", mood:"#6f9e8c", focus:"#7c9fd8", anxiety:"#c9695e"};
+  function renderCondChart(y,m,daysInMonth){
+    const cond = (typeof window.getConditionData==="function") ? window.getConditionData() : {};
+    const W = Math.max(daysInMonth*18, 280), H = 140, PAD=18;
+    const xStep = (W-PAD*2)/(daysInMonth-1||1);
+    const yFor = v => PAD + (5-v)/4*(H-PAD*2);
+    let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;">`;
+    [1,3,5].forEach(v=>{ svg += `<line x1="${PAD}" y1="${yFor(v)}" x2="${W-PAD}" y2="${yFor(v)}" stroke="var(--border)" stroke-width="1"/>`; });
+    COND_ITEMS.forEach(ci=>{
+      let pts = [];
+      for(let d=1; d<=daysInMonth; d++){
+        const k = y+"-"+String(m+1).padStart(2,"0")+"-"+String(d).padStart(2,"0");
+        const v = cond[k] && cond[k][ci.id];
+        if(v!=null) pts.push([PAD+(d-1)*xStep, yFor(v)]);
+      }
+      if(pts.length>1){
+        svg += `<polyline points="${pts.map(p=>p[0]+","+p[1]).join(" ")}" fill="none" stroke="${COND_COLORS[ci.id]}" stroke-width="2"/>`;
+      }
+      pts.forEach(p=>{ svg += `<circle cx="${p[0]}" cy="${p[1]}" r="2.5" fill="${COND_COLORS[ci.id]}"/>`; });
+    });
+    svg += "</svg>";
+    document.getElementById("condChart").innerHTML = svg;
+    document.getElementById("condLegend").innerHTML = COND_ITEMS.map(ci=>
+      `<span class="lg"><span class="sw" style="background:${COND_COLORS[ci.id]}"></span>${ci.label}</span>`).join("");
+  }
+
+  // ⑨ 金銭管理グラフ（支出バー＋コンディション平均の折れ線を重ねて表示）
+  function renderMoneyChart(y,m,daysInMonth){
+    const money = (typeof window.getMoneyData==="function") ? window.getMoneyData() : {};
+    const cond = (typeof window.getConditionData==="function") ? window.getConditionData() : {};
+    const W = Math.max(daysInMonth*18, 280), H = 140, PAD=18;
+    const xStep = (W-PAD*2)/(daysInMonth-1||1);
+    const barW = Math.max(xStep*0.5, 3);
+    let maxAmt = 0, monthTotal = 0;
+    const daily = [];
+    for(let d=1; d<=daysInMonth; d++){
+      const k = y+"-"+String(m+1).padStart(2,"0")+"-"+String(d).padStart(2,"0");
+      const list = money[k]||[];
+      const amt = list.reduce((s,x)=>s+(x.amount||0),0);
+      monthTotal += amt;
+      if(amt>maxAmt) maxAmt = amt;
+      let condAvg = null;
+      if(cond[k]){
+        const vals = COND_ITEMS.map(ci=>cond[k][ci.id]).filter(v=>v!=null);
+        if(vals.length) condAvg = vals.reduce((a,b)=>a+b,0)/vals.length;
+      }
+      daily.push({d, amt, condAvg});
+    }
+    if(maxAmt===0) maxAmt = 1;
+    let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;">`;
+    daily.forEach(({d,amt})=>{
+      const x = PAD+(d-1)*xStep - barW/2;
+      const h = (amt/maxAmt)*(H-PAD*2);
+      svg += `<rect x="${x}" y="${H-PAD-h}" width="${barW}" height="${h}" fill="var(--accent2)" opacity="0.7"/>`;
+    });
+    const yForCond = v => PAD + (5-v)/4*(H-PAD*2);
+    let pts = daily.filter(x=>x.condAvg!=null).map(x=>[PAD+(x.d-1)*xStep, yForCond(x.condAvg)]);
+    if(pts.length>1){
+      svg += `<polyline points="${pts.map(p=>p[0]+","+p[1]).join(" ")}" fill="none" stroke="#c9695e" stroke-width="2"/>`;
+    }
+    svg += "</svg>";
+    document.getElementById("moneyChart").innerHTML = svg;
+    document.getElementById("moneySummary").textContent = `今月の支出合計 ¥${monthTotal.toLocaleString()}（棒＝支出、線＝コンディション平均）`;
+  }
+
+  function renderPhaseStats(){
+    const el = document.getElementById("phaseStats");
+    if(typeof window.getPhaseAverages !== "function" || typeof window.PHASE_INFO !== "object"){ el.innerHTML = ""; return; }
+    const avgs = window.getPhaseAverages();
+    const order = ["月経","卵胞期","排卵期","黄体期"];
+    const rows = order.map(p=>{
+      const info = window.PHASE_INFO[p];
+      const n = avgs[p] ? avgs[p].n : 0;
+      return `<div class="moneyRow" style="flex-direction:column; align-items:flex-start;">
+        <div class="mname">${info.dot} ${p}${n?`（これまでの記録 ${n}日）`:""}</div>
+        <div class="ftime" style="margin-top:2px;">${info.desc}</div>
+      </div>`;
+    });
+    el.innerHTML = rows.join("");
+  }
+
+  // ⑥ 優先度(A/B/C)別の完了内訳：汎用関数
+  function abcBreakdown(tasksArr){
+    const c = {A:0,B:0,C:0};
+    tasksArr.forEach(t=>{ if(t.done && c[t.priority]!=null) c[t.priority]++; });
+    return c;
+  }
+  function abcBarHtml(c){
+    const total = c.A+c.B+c.C;
+    if(total===0) return '<div class="noTask">完了タスクがまだありません</div>';
+    const pctA=Math.round(c.A/total*100), pctB=Math.round(c.B/total*100), pctC=100-pctA-pctB;
+    return `<div class="gtrack" style="display:flex; overflow:hidden; height:10px;">
+        <div style="width:${pctA}%; background:#c9695e;"></div>
+        <div style="width:${pctB}%; background:#c98a5e;"></div>
+        <div style="width:${pctC}%; background:#6f9e8c;"></div>
+      </div>
+      <div class="chartlegend" style="margin-top:6px;">
+        <span class="lg"><span class="sw" style="background:#c9695e"></span>A：${c.A}件</span>
+        <span class="lg"><span class="sw" style="background:#c98a5e"></span>B：${c.B}件</span>
+        <span class="lg"><span class="sw" style="background:#6f9e8c"></span>C：${c.C}件</span>
+      </div>`;
+  }
+  window.abcBreakdown = abcBreakdown;
+  window.abcBarHtml = abcBarHtml;
+  function renderMonthlyAbc(y,m,daysInMonth){
+    let all = [];
+    for(let d=1; d<=daysInMonth; d++){
+      const k = y+"-"+String(m+1).padStart(2,"0")+"-"+String(d).padStart(2,"0");
+      all = all.concat(fData[k]||[]);
+    }
+    document.getElementById("monthlyAbc").innerHTML = abcBarHtml(abcBreakdown(all));
+  }
+  window.getAllTasksFlat = function(){
+    let all = [];
+    Object.keys(fData).forEach(k=>{ all = all.concat(fData[k]); });
+    return all;
+  };
+
+  document.getElementById("prevMonth").addEventListener("click", ()=>{ curMonth.setMonth(curMonth.getMonth()-1); renderMonthly(); });
+  document.getElementById("nextMonth").addEventListener("click", ()=>{ curMonth.setMonth(curMonth.getMonth()+1); renderMonthly(); });
+  document.getElementById("thisMonthBtn").addEventListener("click", ()=>{ curMonth = new Date(); renderMonthly(); });
+
+  renderFranklin();
+  renderMonthly();
+  if(window.refreshTrackerLinkedTimes) window.refreshTrackerLinkedTimes();
+  if(window.refreshAnnualAbc) window.refreshAnnualAbc();
+})();
+</script>
+
+<script>
+(function(){
+  // データの書き出し・読み込み（スマホ⇔PC間の手動移行用）
+  // 「定型部分」（資格ツリーの構造・目標の定義など、改良のたびに変わりうる骨組み）は含めない。
+  // 個人が書き込んだ記録だけを対象にすることで、新バージョンへの反映を軽くしている。
+  const KEYS = [
+    "franklin_tasks_v1",      // タスクの記録
+    "daily_notes_v1",         // 日々の振り返り
+    "monthly_notes_v1",       // 月の振り返り
+    "daily_money_v1",         // 金銭の記録
+    "daily_condition_v1",     // コンディション・生理日の記録
+    "values_log_v1"           // 価値観・感謝・学び・課題・体調の手動記録
+  ];
+
+  document.getElementById("exportBtn").addEventListener("click", async ()=>{
+    const data = {};
+    KEYS.forEach(k=>{ const v = localStorage.getItem(k); if(v!=null) data[k]=v; });
+    const json = JSON.stringify(data, null, 2);
+    try{
+      const downloads = await claude.use("downloads");
+      if(downloads){
+        await downloads.save({ filename:"self-management-backup.json", data: json });
+        return;
+      }
+    }catch(e){}
+    prompt("ファイル保存が使えない環境のようです。以下をコピーして保存してください：", json);
+  });
+
+  document.getElementById("importBtn").addEventListener("click", ()=>{
+    document.getElementById("importFile").click();
+  });
+  document.getElementById("importFile").addEventListener("change", function(){
+    const file = this.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        const data = JSON.parse(e.target.result);
+        if(!confirm("読み込むと、この端末の現在のデータは上書きされます。よろしいですか？")) return;
+        Object.keys(data).forEach(k=>{ localStorage.setItem(k, data[k]); });
+        alert("読み込みが完了しました。ページを再読み込みします。");
+        location.reload();
+      }catch(err){
+        alert("読み込みに失敗しました。正しいバックアップファイル（.json）か確認してください。");
+      }
+    };
+    reader.readAsText(file);
+  });
+})();
+</script>
+
+<script>
+(function(){
+  // 価値観・感謝・学び：Dailyメモの自動転記＋手動追加
+  const CATS = ["価値観","感謝","学び","課題","体調"];
+  const EL_ID = {"価値観":"vlist_values","感謝":"vlist_gratitude","学び":"vlist_learning","課題":"vlist_issues","体調":"vlist_health"};
+  const LOG_KEY = "values_log_v1";
+  let manualLog = {};
+  try{ const raw = localStorage.getItem(LOG_KEY); if(raw) manualLog = JSON.parse(raw); }catch(e){ manualLog = {}; }
+  CATS.forEach(c=>{ if(!manualLog[c]) manualLog[c]=[]; });
+  function logSave(){ try{ localStorage.setItem(LOG_KEY, JSON.stringify(manualLog)); }catch(e){} }
+
+  function todayStr(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+
+  function parseMemoEntries(){
+    const result = {"価値観":[], "感謝":[], "学び":[], "課題":[], "体調":[]};
+    const notes = (typeof window.getDailyNotes==="function") ? window.getDailyNotes() : {};
+    Object.keys(notes).sort().forEach(dateKey=>{
+      (notes[dateKey]||"").split("\n").forEach(line=>{
+        const m = line.match(/^\s*(価値観|感謝|学び|課題|体調)\s*[>＞]\s*(.+)$/);
+        if(m && result[m[1]]) result[m[1]].push({text:m[2].trim(), date:dateKey});
+      });
+    });
+    return result;
+  }
+
+  function renderValues(){
+    const auto = parseMemoEntries();
+    CATS.forEach(cat=>{
+      const container = document.getElementById(EL_ID[cat]);
+      const entries = auto[cat].map(e=>({...e, manual:false}))
+        .concat(manualLog[cat].map((e,i)=>({...e, manual:true, idx:i})));
+      entries.sort((a,b)=> a.date<b.date?1:(a.date>b.date?-1:0));
+      container.innerHTML = "";
+      if(entries.length===0){ container.innerHTML = '<div class="noTask">まだありません</div>'; return; }
+      entries.forEach(e=>{
+        const row = document.createElement("div");
+        row.className = "goalrow";
+        row.innerHTML = `<span class="gtitle">${e.text}</span><span class="gdeadline">${e.date}</span>` + (e.manual ? '<button class="ebtn del">🗑</button>' : '');
+        if(e.manual){
+          row.querySelector(".del").addEventListener("click", ()=>{
+            manualLog[cat].splice(e.idx,1); logSave(); renderValues();
+          });
+        }
+        container.appendChild(row);
+      });
+    });
+  }
+  window.refreshValues = renderValues;
+
+  document.getElementById("vAddBtn").addEventListener("click", ()=>{
+    const cat = document.getElementById("vCat").value;
+    const textEl = document.getElementById("vText");
+    const text = textEl.value.trim();
+    if(!text){ alert("内容を入力してください"); return; }
+    manualLog[cat].push({text, date:todayStr()});
+    logSave();
+    textEl.value = "";
+    renderValues();
+  });
+
+  renderValues();
+})();
+</script>
+</body>
+</html>
